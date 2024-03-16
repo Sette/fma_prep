@@ -127,7 +127,7 @@ def process_df(df,i,count,batch_size,tfrecords_path):
     print(f"{count} {len(tfrecords)} {path}")
 
 
-def generate_tf_records(df,model,filename="train"):
+def generate_tf_records(df,filename="train"):
     
     tfrecords_path = os.path.join(args.dataset_path,"tfrecords",filename)
     
