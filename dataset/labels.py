@@ -13,13 +13,14 @@ def split_label(label):
     all_labels = []
     label = label.split('-')
     for i in range(len(label)):
-        all_labels.appoend('-'.join(label[:i]))
+        all_labels.append('-'.join(label[:i]))
 
     return all_labels
 
 def parse_label(label, label_size=5):
     # label = label.split('-')
     # preencher com 0 no caso de haver menos de 5 níveis
+
     labels = np.zeros(label_size, dtype=int)
     for i, label in enumerate(label):
         if i == 5:
@@ -27,6 +28,10 @@ def parse_label(label, label_size=5):
         # Aqui você pode fazer a conversão do label em um índice inteiro usando um dicionário ou outro método
         # Neste exemplo, estou apenas usando a posição da label na lista como índice
         labels[i] = label
+
+
+    labels = '-'.join([str(value) for value in labels])
+
     return labels
 
 
