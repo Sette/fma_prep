@@ -23,12 +23,11 @@ def parse_label(label, label_size=5):
 
     labels = np.zeros(label_size, dtype=int)
     for i, label in enumerate(label):
-        if i == 5:
+        if i == label_size-1:
             break
         # Aqui você pode fazer a conversão do label em um índice inteiro usando um dicionário ou outro método
         # Neste exemplo, estou apenas usando a posição da label na lista como índice
         labels[i] = label
-
 
     labels = '-'.join([str(value) for value in labels])
 
@@ -121,16 +120,17 @@ def __create_labels__(categories_df):
     return data
 
 
-## Get complete genre structure
 def get_all_structure(estrutura, df_genres):
-    ## Get structure from df_genres
-    def get_all_structure_from_df(estrutura, df_genres, structure=[]):
-        if estrutura == 0:
-            return structure
-        else:
-            structure.append(int(estrutura))
-            get_all_structure_from_df(df_genres[df_genres["genre_id"] == int(estrutura)].parent.values[0], df_genres,
-                                      structure)
-            return structure
+    # Inicializar uma lista para armazenar a estrutura completa
+    structure = []
 
-    return get_all_structure_from_df(estrutura, df_genres, structure=[])
+    # Iterar até chegar ao topo da hierarquia (quando estrutura for 0)
+    while estrutura != 0:
+        # Adicionar o nó atual à estrutura
+        structure.append(int(estrutura))
+        # Obter o pai do nó atual
+        parent = df_genres[df_genres["genre_id"] == int(estrutura)].parent.values[0]
+        # Atualizar o nó atual para o pai
+        estrutura = parent
+
+    return structure
