@@ -66,7 +66,7 @@ def prepare_paths(args):
     tracks_df = tracks_df.sample(frac=args.sample_size)
 
     tracks_df["track_genres_all"] = tracks_df.track_genres_all.apply(lambda x: ast.literal_eval(x))
-    tracks_df.drop(columns=['track_genres'],inplace=True)
+    tracks_df.drop(columns=['track_genres'], inplace=True)
     tracks_df.dropna(inplace=True)
 
 
@@ -99,11 +99,11 @@ def prepare_labels(tracks_df,args):
     ## Calculate labels_size
     max_depth = tracks_df.full_genre_id.apply(lambda x: len(x))
     max_depth = int(max_depth.max())
-    
+    print(max_depth)
     labels_name = []
     for level in range(max_depth):
         labels_name.append(f'label_{level+1}')
-        
+    print(labels_name)
     tqdm.pandas()
     ## Gnetare categories_df
     #labels =  tracks_df.full_genre_id.progress_apply(lambda x: get_labels_per_level(x))
@@ -115,15 +115,14 @@ def prepare_labels(tracks_df,args):
             labels.extend([0] * (max_depth - len(labels)))
             all_labels.append(labels)
             
-
-    categories_df = pd.DataFrame(all_labels, columns=labels_name)
+    categories_df = pd.DataFrame(all_labels, columns=labels_name).drop_duplicates()
     
-    print(categories_df)
-    #categories_df['label_5_name'] = categories_df.level5.apply(lambda x: get_labels_name(x, genres_df))
+    categories_df[f'label_{max_depth+1}_name'] = [get_labels_name(categorie, genres_df) for categorie in categories_df.values]
 
+    print(categories_df)
     # Write labels file
     with open(args.categories_labels_path, 'w+') as f:
-        f.write(json.dumps(__create_labels__(categories_df)))
+        f.write(json.dumps(__create_labels__(categories_df, max_depth)))
 
     return tracks_df
 
