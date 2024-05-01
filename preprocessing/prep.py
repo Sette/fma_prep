@@ -4,6 +4,7 @@
 # In[1]:
 
 import pandas as pd
+import numpy as np
 import shutil
 import json
 import ast
@@ -11,8 +12,8 @@ import os
 from tqdm.notebook import tqdm
 
 from utils.dir import create_dir, __load_json__
-from dataset.labels import __create_labels__, get_labels_name, split_label, get_all_structure, convert_label_to_string, parse_label
-from dataset.dataset import select_dataset, generate_tf_record, create_metadata
+from dataset.labels import __create_labels__, get_labels_name, split_label, get_all_structure, convert_label_to_string
+from dataset.dataset import select_dataset, generate_tf_record, create_metadata, load_features
 
 # In[2]:
 
@@ -39,22 +40,21 @@ def remover_sublistas_redundantes(lista_de_listas):
 def prepare_paths(args):
     ## Define job paths
     fma_path = os.path.join(args.root_dir,"fma")
-    args['dataset_path'] = os.path.join(args.root_dir, "fma")
     job_path = os.path.join(fma_path,"trains")
     args['job_path'] = os.path.join(job_path, args.train_id)
     args['tfrecord_path'] = os.path.join(args.job_path, "tfrecords")
     args['models_path'] = os.path.join(args.root_dir, "models")
     args['metadata_path'] = os.path.join(fma_path, "fma_metadata")
-    args['metadata_train_path'] = os.path.join(job_path, "metadata.json")
-    args['categories_labels_path'] = os.path.join(job_path, "labels.json")
+    args['metadata_train_path'] = os.path.join(args['job_path'], "metadata.json")
+    args['categories_labels_path'] = os.path.join(args['job_path'], "labels.json")
 
     ## Remove files from path
-    shutil.rmtree(job_path)
-
+    #shutil.rmtree(args['job_path'])
+    
     # In[8]:
 
     ## Create poth if it isn't exist
-    create_dir(job_path)
+    create_dir(args['job_path'])
     # Load tracks_df
     tracks_df = pd.read_csv(os.path.join(args.metadata_path, 'tracks_valid.csv'))
 
@@ -68,6 +68,7 @@ def prepare_paths(args):
     tracks_df["track_genres_all"] = tracks_df.track_genres_all.apply(lambda x: ast.literal_eval(x))
     tracks_df.drop(columns=['track_genres'], inplace=True)
     tracks_df.dropna(inplace=True)
+    tracks_df.rename(columns={'track_id_':'track_id'},inplace=True)
 
 
     return args, tracks_df
@@ -94,54 +95,78 @@ def prepare_labels(tracks_df,args):
 
     ## Get structure form hierarchical classification
     tracks_df['full_genre_id'] = estruturas
-    tracks_df = tracks_df[['track_id_', 'full_genre_id']]
+    tracks_df = tracks_df[['track_id', 'full_genre_id']]
 
     ## Calculate labels_size
-    max_depth = tracks_df.full_genre_id.apply(lambda x: len(x))
+    max_depth = tracks_df.full_genre_id.apply(lambda x: max([len(value) for value in x]))
     max_depth = int(max_depth.max())
-    print(max_depth)
+    args['max_depth'] = max_depth
+    print(f'max depth: {max_depth}')
+    
     labels_name = []
     for level in range(max_depth):
         labels_name.append(f'label_{level+1}')
-    print(labels_name)
     tqdm.pandas()
     ## Gnetare categories_df
     #labels =  tracks_df.full_genre_id.progress_apply(lambda x: get_labels_per_level(x))
-
+  
     #all_levels = categories_df.label5.progress_apply(lambda x: split_label(x))
     all_labels = []
-    for idx, row in enumerate(tracks_df.full_genre_id):
+    for idx, row in tqdm(enumerate(tracks_df.full_genre_id)):
         for labels in row:
-            labels.extend([0] * (max_depth - len(labels)))
+            labels.extend([""] * (max_depth - len(labels)))
             all_labels.append(labels)
             
-    categories_df = pd.DataFrame(all_labels, columns=labels_name).drop_duplicates()
+    categories_df = pd.DataFrame(all_labels, columns=labels_name)
     
-    categories_df[f'label_{max_depth+1}_name'] = [get_labels_name(categorie, genres_df) for categorie in categories_df.values]
+    #categories_df = pd.DataFrame(all_labels, columns=labels_name).drop_duplicates()
 
-    print(categories_df)
+    categories_df.drop_duplicates(inplace=True)
+
+    categories_df[f'label_{max_depth}_name'] = [get_labels_name(categorie, genres_df) for categorie in categories_df.values]
+
+    data = __create_labels__(categories_df, max_depth)
+
+    args['labels'] = data
     # Write labels file
     with open(args.categories_labels_path, 'w+') as f:
-        f.write(json.dumps(__create_labels__(categories_df, max_depth)))
+        f.write(json.dumps(data))
 
-    return tracks_df
+    return tracks_df, args
 
 def split_dataset(tracks_df,args):
     #### Split dataset
 
-    df_train, df_test, df_val = select_dataset(tracks_df)
+    df_train, df_test, df_val = select_dataset(tracks_df, args)
 
-    val_path = generate_tf_record(df_val, tf_path=os.path.join(args.tfrecord_path, 'val'))
-    test_path = generate_tf_record(df_test, tf_path=os.path.join(args.tfrecord_path, 'test'))
-    train_path = generate_tf_record(df_train, tf_path=os.path.join(args.tfrecord_path, 'train'))
+    args['val_path'] = os.path.join(args.tfrecord_path, 'val')
+    args['test_path'] = os.path.join(args.tfrecord_path, 'test')
+    args['train_path'] = os.path.join(args.tfrecord_path, 'train')
+
+    args['train_csv'] = os.path.join(args.job_path, "train.csv")
+    args['test_csv'] = os.path.join(args.job_path, "test.csv")
+    args['val_csv'] = os.path.join(args.job_path, "val.csv")
+
+    df_train.to_csv(args['train_csv'], index=False)
+    df_test.to_csv(args['test_csv'], index=False)
+    df_val.to_csv(args['val_csv'], index=False)
+
+    df_features = load_features(args.dataset_path, dataset=args.embeddings)
+
+    df_features.dropna(inplace=True)
+        
+    val_path = generate_tf_record(df_val, df_features, args, tf_path=args['val_path'])
+    test_path = generate_tf_record(df_test, df_features, args, tf_path=args['test_path'])
+    train_path = generate_tf_record(df_train, df_features, args, tf_path=args['train_path'])
+
+    args['val_len'] = df_val.shape[0]
+    args['test_len'] = df_test.shape[0]
+    args['train_len'] = df_train.shape[0]
 
     ## Create metadata file
-    create_metadata(args.metadata_path)
+    create_metadata(args)
 
-    train_path.to_csv(os.path.join(args.job_path, "train.csv"), index=False)
-    test_path.to_csv(os.path.join(args.job_path, "test.csv"), index=False)
-    val_path.to_csv(os.path.join(args.job_path, "val.csv"), index=False)
-
+   
 
 def run():
     args = pd.Series({
