@@ -42,8 +42,7 @@ if args.embeddings == "music_style":
 
 df = pd.read_csv(os.path.join(metadata_path_fma,"tracks_valid.csv"))
 
-
-model = TensorflowPredictEffnetDiscogs(graphFilename=model_path,output="PartitionedCall:1")
+model = TensorflowPredictEffnetDiscogs(graphFilename=model_path, output="PartitionedCall:1")
 
 def create_dir(path):
     # checking if the directory demo_folder2 

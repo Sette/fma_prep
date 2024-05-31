@@ -28,14 +28,13 @@ def get_labels_per_level():
 def remover_sublistas_redundantes(lista_de_listas):
     elementos_vistos = set()
     sublistas_filtradas = []
-
+    max_depth = max([len(value) for value in lista_de_listas])
+    new_sublist = []
     for sublista in lista_de_listas:
-        if not any(elem in elementos_vistos for elem in sublista):
-            sublistas_filtradas.append(sublista)
-            elementos_vistos.update(sublista)
+        if len(sublista) == max_depth:
+            new_sublist.append(sublista)
 
-    return sublistas_filtradas
-
+    return new_sublist
 
 def prepare_paths(args):
     ## Define job paths

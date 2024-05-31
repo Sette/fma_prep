@@ -98,7 +98,7 @@ def select_dataset(df, args):
     trains = []
     validations = []
     
-    labels_strings = df['full_genre_id'].apply(convert_list_to_string)
+    labels_strings = df['y_true'].apply(convert_list_to_string)
     # Agrupa o DataFrame com base nos rótulos hierárquicos
     groups = df.groupby(labels_strings)
     
@@ -120,7 +120,7 @@ def select_dataset(df, args):
         ## this increase the numner of samples when classes has low quantity
         count_train = len(train)
         if count_train < oversampling_size:
-            print(f'Oversampling: {train.full_genre_id.iloc[0]}')
+            print(f'Oversampling: {train.y_true.iloc[0]}')
             train = train.sample(oversampling_size, replace=True)
     
         trains.append(train)
@@ -174,7 +174,11 @@ def parse_single_music(data, labels):
                 label = labels[f'label_{level}'][cat[level-1]]
                 #print(cat[level-1], label)
                 #label = np.array([label, labels[f'label_{level}_count']], np.int64)
-                level_labels.append(label)
+                if label not in level_labels:
+                    level_labels.append(label)
+            else:
+                if len(level_labels) == 0:
+                    level_labels.append(-1)
         data[f'label{level}'] =  _int64List_feature(level_labels)
 
     data['features'] = _float_feature(music)
