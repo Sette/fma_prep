@@ -44,8 +44,8 @@ class MusicDataset(Dataset):
         parsed_data = parse_single_music(data, self.labels)
         features = torch.tensor(parsed_data['features'], dtype=torch.float32)
         labels = {key: torch.tensor(value, dtype=torch.long) for key, value in parsed_data.items() if key.startswith('label')}
-        track_id = torch.tensor(parsed_data['track_id'], dtype=torch.long)
-        return features, labels, track_id
+        #track_id = torch.tensor(parsed_data['track_id'], dtype=torch.long)
+        return features, labels
 
 # Função para gerar e salvar DataLoader
 def generate_torch_data(df, df_features, args, save_path='data.pth', batch_size=1024 * 50, shuffle=True):
@@ -63,6 +63,5 @@ def generate_torch_data(df, df_features, args, save_path='data.pth', batch_size=
     loaded_dataset = torch.load(save_path)
     
     # Criação do DataLoader
-    data_loader = DataLoader(loaded_dataset, batch_size=batch_size, shuffle=shuffle)
+    #data_loader = DataLoader(loaded_dataset, batch_size=batch_size, shuffle=shuffle)
     
-    return data_loader

@@ -216,10 +216,6 @@ def generate_tf_record(df, df_features, args, tf_path='val'):
 
     print(f"{count}/{total} batchs / {len(df)} processed")
 
-    return tf_path
-
-
-
 def create_metadata(args):
     with open(args.metadata_train_path, 'w+') as f:
         levels_size = []
@@ -232,6 +228,9 @@ def create_metadata(args):
             'val_path': args.val_path,
             'train_path': args.train_path,
             'test_path': args.test_path,
+            'val_torch_path': args.val_torch_path,
+            'train_torch_path': args.train_torch_path,
+            'test_torch_path': args.test_torch_path,
             'val_csv': args.val_csv,
             'train_csv': args.train_csv,
             'test_csv': args.test_csv,

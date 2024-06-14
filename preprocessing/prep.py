@@ -14,6 +14,7 @@ from tqdm.notebook import tqdm
 from utils.dir import create_dir, __load_json__
 from dataset.labels import __create_labels__, get_labels_name, split_label, get_all_structure, convert_label_to_string
 from dataset.dataset import select_dataset, generate_tf_record, create_metadata, load_features
+from dataset.dataset_torch import generate_torch_data
 
 # In[2]:
 
@@ -42,15 +43,11 @@ def prepare_paths(args):
     job_path = os.path.join(fma_path,"trains")
     args['job_path'] = os.path.join(job_path, args.train_id)
     args['tfrecord_path'] = os.path.join(args.job_path, "tfrecords")
+    args['torch_path'] = os.path.join(args.job_path, "torch")
     args['models_path'] = os.path.join(args.root_dir, "models")
     args['metadata_path'] = os.path.join(fma_path, "fma_metadata")
     args['metadata_train_path'] = os.path.join(args['job_path'], "metadata.json")
     args['categories_labels_path'] = os.path.join(args['job_path'], "labels.json")
-
-    ## Remove files from path
-    #shutil.rmtree(args['job_path'])
-    
-    # In[8]:
 
     ## Create poth if it isn't exist
     create_dir(args['job_path'])
@@ -77,14 +74,12 @@ def prepare_labels(tracks_df,args):
     # Loand genres df
     genres_df = pd.read_csv(os.path.join(args.metadata_path, 'genres.csv'))
     # Mapear os identificadores numéricos de gêneros para os nomes dos gêneros
-    genre_names = dict(zip(genres_df['genre_id'], genres_df['title']))
-
+    
     # Inicialize uma lista para armazenar todos os caminhos de gêneros para cada exemplo
     estruturas = []
 
     # Iterar sobre as faixas e seus gêneros associados
     for track_genres in tracks_df['track_genres_all']:
-        #caminho_name = [genre_names[genre_id] for genre_id in track_genres]
         caminho_id = [get_all_structure(genre_id, genres_df) for genre_id in track_genres]
         estruturas.append(caminho_id)
 
@@ -93,32 +88,28 @@ def prepare_labels(tracks_df,args):
         estruturas[idx] = remover_sublistas_redundantes(caminho)
 
     ## Get structure form hierarchical classification
-    tracks_df['full_genre_id'] = estruturas
-    tracks_df = tracks_df[['track_id', 'full_genre_id']]
+    #print(estruturas)
+    tracks_df['y_true'] = estruturas
+    tracks_df = tracks_df[['track_id', 'y_true']]
 
     ## Calculate labels_size
-    max_depth = tracks_df.full_genre_id.apply(lambda x: max([len(value) for value in x]))
+    max_depth = tracks_df.y_true.apply(lambda x: max([len(value) for value in x]))
     max_depth = int(max_depth.max())
     args['max_depth'] = max_depth
     print(f'max depth: {max_depth}')
     
     labels_name = []
-    for level in range(max_depth):
-        labels_name.append(f'label_{level+1}')
+    for level in range(1, max_depth+1):
+        labels_name.append(f'label_{level}')
     tqdm.pandas()
-    ## Gnetare categories_df
-    #labels =  tracks_df.full_genre_id.progress_apply(lambda x: get_labels_per_level(x))
-  
-    #all_levels = categories_df.label5.progress_apply(lambda x: split_label(x))
+
     all_labels = []
-    for idx, row in tqdm(enumerate(tracks_df.full_genre_id)):
+    for idx, row in tqdm(enumerate(tracks_df.y_true)):
         for labels in row:
             labels.extend([""] * (max_depth - len(labels)))
             all_labels.append(labels)
             
     categories_df = pd.DataFrame(all_labels, columns=labels_name)
-    
-    #categories_df = pd.DataFrame(all_labels, columns=labels_name).drop_duplicates()
 
     categories_df.drop_duplicates(inplace=True)
 
@@ -133,6 +124,7 @@ def prepare_labels(tracks_df,args):
 
     return tracks_df, args
 
+
 def split_dataset(tracks_df,args):
     #### Split dataset
 
@@ -141,6 +133,10 @@ def split_dataset(tracks_df,args):
     args['val_path'] = os.path.join(args.tfrecord_path, 'val')
     args['test_path'] = os.path.join(args.tfrecord_path, 'test')
     args['train_path'] = os.path.join(args.tfrecord_path, 'train')
+
+    args['val_torch_path'] = os.path.join(args.torch_path, 'val.pth')
+    args['test_torch_path'] = os.path.join(args.torch_path, 'test.pth')
+    args['train_torch_path'] = os.path.join(args.torch_path, 'train.pth')
 
     args['train_csv'] = os.path.join(args.job_path, "train.csv")
     args['test_csv'] = os.path.join(args.job_path, "test.csv")
@@ -153,10 +149,14 @@ def split_dataset(tracks_df,args):
     df_features = load_features(args.dataset_path, dataset=args.embeddings)
 
     df_features.dropna(inplace=True)
+
+    generate_torch_data(df_val, df_features, args, save_path=args['val_torch_path'], batch_size=1024 * 50, shuffle=True)
+    generate_torch_data(df_test, df_features, args, save_path=args['test_torch_path'], batch_size=1024 * 50, shuffle=True)
+    generate_torch_data(df_train, df_features, args, save_path=args['train_torch_path'], batch_size=1024 * 50, shuffle=True)
         
-    val_path = generate_tf_record(df_val, df_features, args, tf_path=args['val_path'])
-    test_path = generate_tf_record(df_test, df_features, args, tf_path=args['test_path'])
-    train_path = generate_tf_record(df_train, df_features, args, tf_path=args['train_path'])
+    generate_tf_record(df_val, df_features, args, tf_path=args['val_path'])
+    generate_tf_record(df_test, df_features, args, tf_path=args['test_path'])
+    generate_tf_record(df_train, df_features, args, tf_path=args['train_path'])
 
     args['val_len'] = df_val.shape[0]
     args['test_len'] = df_test.shape[0]
