@@ -1,5 +1,4 @@
 .ipynb_checkpoints
 .idea
-preprocessing/__pycache__/prep.cpython-311.pyc
-dataset/__pycache__/dataset.cpython-311.pyc
-dataset/__pycache__/labels.cpython-311.pyc
+preprocessing/__pycache__
+dataset/__pycache__
