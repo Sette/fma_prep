@@ -12,23 +12,17 @@ import os
 from tqdm.notebook import tqdm
 
 from utils.dir import create_dir, __load_json__
-from dataset.labels import __create_labels__, get_labels_name, split_label, get_all_structure, convert_label_to_string
-from dataset.dataset import select_dataset, generate_tf_record, create_metadata, load_features
+from dataset.labels import __create_labels__, get_all_structure
+from dataset.dataset_tensorflow import generate_tf_record 
+from dataset.dataset import select_dataset, create_metadata, load_features
 from dataset.dataset_torch import generate_torch_data
-
+from sklearn.preprocessing import MultiLabelBinarizer
 # In[2]:
 
 
 tqdm.pandas()
 
-# In[3]:
-
-def get_labels_per_level():
-    print('teste')
-
 def remover_sublistas_redundantes(lista_de_listas):
-    elementos_vistos = set()
-    sublistas_filtradas = []
     max_depth = max([len(value) for value in lista_de_listas])
     new_sublist = []
     for sublista in lista_de_listas:
@@ -55,7 +49,7 @@ def prepare_paths(args):
     tracks_df = pd.read_csv(os.path.join(args.metadata_path, 'tracks_valid.csv'))
 
     # Loand genres df
-    genres_df = pd.read_csv(os.path.join(args.metadata_path, 'genres.csv'))
+    #genres_df = pd.read_csv(os.path.join(args.metadata_path, 'genres.csv'))
     # In[13]:
 
     ## Get sample size from args parameter
@@ -67,7 +61,13 @@ def prepare_paths(args):
     tracks_df.rename(columns={'track_id_':'track_id'},inplace=True)
 
 
-    return args, tracks_df
+    return tracks_df, args
+
+
+
+# Função para dividir os rótulos em níveis
+def split_labels(all_labels, level):
+    return [label[level] if len(label) > level else None for labels in all_labels for label in labels]
 
 def prepare_labels(tracks_df,args):
     ##### Labels
@@ -89,7 +89,7 @@ def prepare_labels(tracks_df,args):
 
     ## Get structure form hierarchical classification
     #print(estruturas)
-    tracks_df['y_true'] = estruturas
+    tracks_df.loc[:, 'y_true'] = estruturas
     tracks_df = tracks_df[['track_id', 'y_true']]
 
     ## Calculate labels_size
@@ -100,29 +100,25 @@ def prepare_labels(tracks_df,args):
     
     labels_name = []
     for level in range(1, max_depth+1):
-        labels_name.append(f'label_{level}')
-    tqdm.pandas()
+        labels_name.append(f'level{level}')
+        idx = level-1
+         # Extrai os rótulos do nível atual
+        level_labels = split_labels(tracks_df['y_true'], idx)
+         # Remove valores None
+        level_labels = [[label] for label in level_labels if label is not None]
+        
+        # Cria e aplica o MultiLabelBinarizer
+        mlb = MultiLabelBinarizer()
+        binarized = mlb.fit_transform(level_labels)
 
-    all_labels = []
-    for idx, row in tqdm(enumerate(tracks_df.y_true)):
-        for labels in row:
-            labels.extend([""] * (max_depth - len(labels)))
-            all_labels.append(labels)
-            
-    categories_df = pd.DataFrame(all_labels, columns=labels_name)
+        binarized_labels = [binarized[i] if i < len(binarized) else [0] * len(mlb.classes_) for i in range(len(tracks_df))]
 
-    categories_df.drop_duplicates(inplace=True)
+        tracks_df.loc[:, labels_name[idx]] = binarized_labels
 
-    categories_df[f'label_{max_depth}_name'] = [get_labels_name(categorie, genres_df) for categorie in categories_df.values]
-
-    data = __create_labels__(categories_df, max_depth)
-
-    args['labels'] = data
-    # Write labels file
-    with open(args.categories_labels_path, 'w+') as f:
-        f.write(json.dumps(data))
-
+    
     return tracks_df, args
+
+
 
 
 def split_dataset(tracks_df,args):
@@ -142,27 +138,35 @@ def split_dataset(tracks_df,args):
     args['test_csv'] = os.path.join(args.job_path, "test.csv")
     args['val_csv'] = os.path.join(args.job_path, "val.csv")
 
-    df_train.to_csv(args['train_csv'], index=False)
-    df_test.to_csv(args['test_csv'], index=False)
-    df_val.to_csv(args['val_csv'], index=False)
-
     df_features = load_features(args.dataset_path, dataset=args.embeddings)
 
     df_features.dropna(inplace=True)
 
-    generate_torch_data(df_val, df_features, args, save_path=args['val_torch_path'], batch_size=1024 * 50, shuffle=True)
-    generate_torch_data(df_test, df_features, args, save_path=args['test_torch_path'], batch_size=1024 * 50, shuffle=True)
-    generate_torch_data(df_train, df_features, args, save_path=args['train_torch_path'], batch_size=1024 * 50, shuffle=True)
-        
-    generate_tf_record(df_val, df_features, args, tf_path=args['val_path'])
-    generate_tf_record(df_test, df_features, args, tf_path=args['test_path'])
-    generate_tf_record(df_train, df_features, args, tf_path=args['train_path'])
+    df_val_features = df_val.merge(df_features, on='track_id')
+    df_test_features = df_test.merge(df_features, on='track_id')
+    df_train_features = df_train.merge(df_features, on='track_id')
+
+
+    print(df_train_features.columns)
+    print(type(df_train_features.y_true.iloc[0]))
+
+    # df_train_features.to_csv(args['train_csv'], index=False)
+    # df_test_features.to_csv(args['test_csv'], index=False)
+    # df_val_features.to_csv(args['val_csv'], index=False)
+
+    generate_tf_record(df_val_features, args, tf_path=args['val_path'])
+    generate_tf_record(df_test_features, args, tf_path=args['test_path'])
+    generate_tf_record(df_train_features, args, tf_path=args['train_path'])
+
+    # generate_torch_data(df_val_features, args, save_path=args['val_torch_path'], batch_size=1024 * 50, shuffle=True)
+    # generate_torch_data(df_test_features, args, save_path=args['test_torch_path'], batch_size=1024 * 50, shuffle=True)
+    # generate_torch_data(df_train_features, args, save_path=args['train_torch_path'], batch_size=1024 * 50, shuffle=True)
 
     args['val_len'] = df_val.shape[0]
     args['test_len'] = df_test.shape[0]
     args['train_len'] = df_train.shape[0]
 
-    ## Create metadata file
+    # ## Create metadata file
     create_metadata(args)
 
    
@@ -170,16 +174,18 @@ def split_dataset(tracks_df,args):
 def run():
     args = pd.Series({
         "root_dir": "/mnt/disks/data/",
-        "dataset_path": "/mnt/disks/data/fma/fma_large",
+        "dataset_path": "/mnt/disks/data/fma/fma_large", 
         "embeddings": "music_style",
         "sequence_size": 1280,
-        "train_id": "hierarchical_hiclass",
-        'sample_size': 1/100
+        "train_id": "hierarchical_tworoots_dev",
+        'sample_size': 0.1
     })
 
-    args, tracks_df = prepare_paths(args)
-    tracks_df = prepare_labels(tracks_df,args)
-    #split_dataset(tracks_df,args)
+
+    tracks_df, args = prepare_paths(args)
+    tracks_df = tracks_df[tracks_df['track_genre_top'].isin(['Rock','Electronic'])]
+    tracks_df, args = prepare_labels(tracks_df,args)
+    split_dataset(tracks_df,args)
 
 
 

@@ -49,42 +49,75 @@ def serialize_array(array):
     array = tf.io.serialize_tensor(array)
     return array
     
+def create_example(data, labels):
+    track_id, categories, feature = data
+    
+    max_depth = labels['max_depth']
+    example = {}
 
-def parse_single_music(data, labels):
-    track_id, categories, music = data
-    max_depth = len(categories[0])
-    data = {}
-    for level in range(1, max_depth+1):
+    example['features'] = _float_feature(feature)
+    example['track_id'] = _int64_feature(track_id)
+
+    for level, idx in enumerate(range(0, max_depth), start=1):
+        label_key = f'level{level}'
         level_labels = []
         for cat in categories:
-            if cat[level-1] != "":
-                label = labels[f'label_{level}'][cat[level-1]]
+            if cat[idx] != '':
+                label = labels[label_key][cat[idx]]
                 if label not in level_labels:
                     level_labels.append(label)
-            else:
-                if len(level_labels) == 0:
-                    level_labels.append(-1)
-        data[f'label{level}'] =  _int64List_feature(level_labels)
+        level_labels = np.array(level_labels, np.int64)
+        print(level_labels)
+        example[f'level{level}'] =  _int64List_feature(level_labels)
+
+    features = tf.train.Features(feature=example)
+
+    example = tf.train.Example(features=features)
+
+    return example
+
+   
+
+
+def create_example(data, labels):
+    track_id, categories, music = data
+    max_depth = labels['max_depth']
+    #print(max_depth)
+    #print(categories)
+    data = {}
 
     data['features'] = _float_feature(music)
     data['track_id'] = _int64_feature(track_id)
-    
+
+    for level, idx in enumerate(range(0, max_depth), start=1):
+        label_key = f'level{level}'
+        level_labels = []
+        for cat in categories:
+            if cat[idx] != '':
+                label = labels[label_key][cat[idx]]
+                if label not in level_labels:
+                    level_labels.append(label)
+
+        if len(level_labels) == 0:
+            level_labels.append(-1)
+
+        print(level_labels)
+        data[f'level{level}'] =  _int64List_feature(level_labels)
+
     out = tf.train.Example(features=tf.train.Features(feature=data))
 
     return out
 
 
-def generate_tf_record(df, df_features, args, tf_path='val'):
+def generate_tf_record(df, args, tf_path='val'):
     create_dir(tf_path)
-    
-    df = df.merge(df_features, on='track_id')
 
     batch_size = 1024 * 50  # 50k records from each file batch
     count = 0
     total = math.ceil(len(df) / batch_size)
     for i in range(0, len(df), batch_size):
         batch_df = df[i:i + batch_size]
-        tfrecords = [parse_single_music(data, args.labels) for data in batch_df.values]
+        tfrecords = [create_example(data, args.labels) for data in batch_df.values]
         path = f"{tf_path}/{str(count).zfill(10)}.tfrecord"
 
         # with tf.python_io.TFRecordWriter(path) as writer:

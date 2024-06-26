@@ -9,6 +9,7 @@ def convert_label_to_string(parsed_labels):
 
     return all_labels
 
+
 def split_label(label):
     all_labels = []
     label = label.split('-')
@@ -34,7 +35,7 @@ def parse_label(label, label_size=5):
     return labels
 
 
-def get_labels_name(x, genres_df, max_depth=4):
+def get_labels_name(x, genres_df):
     full_name = []
     genre_root = ""
     for genre in x:
@@ -51,35 +52,34 @@ def get_labels_name(x, genres_df, max_depth=4):
     return full_name
     # return genres_df[genres_df['genre_id'] == int(x)].title.values.tolist()[0]
 
-
 def __create_labels__(categories_df, max_depth):
     data = {}
-    for level in range(max_depth):
-        level+=1
-        level_name = f'label_{level}'
+    data[f'levels_size'] = []
+    for level in range(1, max_depth+1):
+        level_name = f'level{level}'
         data[level_name] = {}
         data[f'{level_name}_name'] = {}
         data[f'{level_name}_inverse'] = []
-        data[f'{level_name}_count'] = 0 
         slice_df = categories_df[level_name].drop_duplicates()
         for idx, cat in enumerate(slice_df.values):
             if cat != "":
                 cat = int(cat)
-                name = categories_df[categories_df[level_name] == cat][f'label_{max_depth}_name'].values.tolist()[0]
+                name = categories_df[categories_df[level_name] == cat][f'level{max_depth}_name'].values.tolist()[0]
                 data[level_name][cat] = idx
                 data[f'{level_name}_name'][cat] = '>'.join(name.split('>')[:level])
                 data[f'{level_name}_inverse'].append(cat)
-                data[f'{level_name}_count'] = idx + 1
-    
+        
+        data['levels_size'].append(len(data[f'{level_name}_name']))
 
     for values in categories_df.values:
         label_name = values[-1]
         labels = values[:-1]
-        for level, label in zip(range(max_depth),labels):
+        for level, label in zip(range(1, max_depth+1),labels):
             if label != "":
-                data[f'label_{level+1}_name'][int(label)] = '>'.join(label_name.split('>')[:level+1])
+                data[f'level{level}_name'][int(label)] = '>'.join(label_name.split('>')[:level])
             
     return data
+        
 
 
 
