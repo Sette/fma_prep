@@ -48,19 +48,17 @@ class MusicDataset(Dataset):
         return features, labels
 
 # Função para gerar e salvar DataLoader
-def generate_torch_data(df, df_features, args, save_path='data.pth', batch_size=1024 * 50, shuffle=True):
+def generate_torch_data(df_features, args, save_path='data.pth', batch_size=1024 * 50, shuffle=True):
     create_dir(os.path.dirname(save_path))
-    
-    df = df.merge(df_features, on='track_id')
-    
+
     # Criação do dataset
-    dataset = MusicDataset(df, args.labels)
+    dataset = MusicDataset(df_features, args.labels)
     
     # Salvar o dataset em um arquivo PyTorch
     torch.save(dataset, save_path)
     
     # Carregar o dataset salvo
-    loaded_dataset = torch.load(save_path)
+    #loaded_dataset = torch.load(save_path)
     
     # Criação do DataLoader
     #data_loader = DataLoader(loaded_dataset, batch_size=batch_size, shuffle=shuffle)

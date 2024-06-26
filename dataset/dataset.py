@@ -12,7 +12,6 @@ from tqdm import tqdm
 from sklearn.utils import shuffle
 from math import ceil
 
-from utils.dir import create_dir
 
 def parse_tfr_element(element):
     # use the same structure as above; it's kinda an outline of the structure we now want to create
@@ -66,8 +65,6 @@ def load_features(path, dataset='music_style'):
 def convert_list_to_string(lst):
     return '_'.join([str(x) for x in lst])
 
-
-
 def __split_data__(group, percentage=0.1):
     if len(group) == 1:
         return group, group
@@ -82,18 +79,6 @@ def __split_data__(group, percentage=0.1):
 
 
 def select_dataset(df, args):
-    #     dataset_testset_path = os.path.join(tfrecord_path,'test')
-    #     dataset_validationset_path = os.path.join(tfrecord_path,'val')
-    #     dataset_trainset_path = os.path.join(tfrecord_path,'train')
-    
-    # Inicializa listas para armazenar os dados divididos
-
-    #df_features = load_dataset(args.dataset_path, dataset=args.embeddings)
-
-    #df_features.dropna(inplace=True)
-
-    #df = df.merge(df_features, on='track_id')
-
     tests = []
     trains = []
     validations = []
@@ -104,12 +89,10 @@ def select_dataset(df, args):
     
     count = 0
     items_count = 0
-    total = len(groups)
-    total_items = len(df)
-    oversampling_size = 2  # int(group_sizes.mean() + group_sizes.std() * 2)
+    oversampling_size = 5  # int(group_sizes.mean() + group_sizes.std() * 2)
     print(f"oversampling_size: {oversampling_size}")
     
-    for code, group in tqdm(groups):
+    for _, group in tqdm(groups):
         test, train_to_split = __split_data__(group, 0.2)  # 20%
         train_to_split = train_to_split
         validation, train = __split_data__(train_to_split, 0.1)  # %10
@@ -135,96 +118,12 @@ def select_dataset(df, args):
 
     return df_train, df_test, df_val
 
-
-def _bytes_feature(value):
-    ### Returns a bytes_list from a string / byte."""
-    if isinstance(value, type(tf.constant(0))):  # if value ist tensor
-        value = value.numpy()  # get value of tensor
-    return tf.train.Feature(bytes_list=tf.train.BytesList(value=value))
-
-
-def _float_feature(value):
-    ### Returns a floast_list from a float / double."""
-    return tf.train.Feature(float_list=tf.train.FloatList(value=value))
-
-
-def _int64List_feature(value):
-    return tf.train.Feature(int64_list=tf.train.Int64List(value=value))
-
-
-def _int64_feature(value):
-    ###  Returns an int64_list from a bool / enum / int / uint."""
-    return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
-
-
-def serialize_array(array):
-    array = tf.io.serialize_tensor(array)
-    return array
-    
-
-def parse_single_music(data, labels):
-    track_id, categories, music = data
-    max_depth = len(categories[0])
-    #print(categories)
-    data = {}
-    for level in range(1, max_depth+1):
-        level_labels = []
-        for cat in categories:
-            if cat[level-1] != "":
-                label = labels[f'label_{level}'][cat[level-1]]
-                #print(cat[level-1], label)
-                #label = np.array([label, labels[f'label_{level}_count']], np.int64)
-                if label not in level_labels:
-                    level_labels.append(label)
-            else:
-                if len(level_labels) == 0:
-                    level_labels.append(-1)
-        data[f'label{level}'] =  _int64List_feature(level_labels)
-
-    data['features'] = _float_feature(music)
-    data['track_id'] = _int64_feature(track_id)
-    
-    out = tf.train.Example(features=tf.train.Features(feature=data))
-
-    return out
-
-
-def generate_tf_record(df, df_features, args, tf_path='val'):
-    create_dir(tf_path)
-    
-    df = df.merge(df_features, on='track_id')
-
-    batch_size = 1024 * 50  # 50k records from each file batch
-    count = 0
-    total = math.ceil(len(df) / batch_size)
-
-    for i in range(0, len(df), batch_size):
-        batch_df = df[i:i + batch_size]
-
-        tfrecords = [parse_single_music(data, args.labels) for data in batch_df.values]
-
-        path = f"{tf_path}/{str(count).zfill(10)}.tfrecord"
-
-        # with tf.python_io.TFRecordWriter(path) as writer:
-        with tf.io.TFRecordWriter(path) as writer:
-            for tfrecord in tfrecords:
-                writer.write(tfrecord.SerializeToString())
-
-        print(f"{count} {len(tfrecords)} {path}")
-        count += 1
-        print(f"{count}/{total} batchs / {count * batch_size} processed")
-
-    print(f"{count}/{total} batchs / {len(df)} processed")
-
 def create_metadata(args):
     with open(args.metadata_train_path, 'w+') as f:
-        levels_size = []
-        for lv in range(1, args.max_depth):
-            levels_size.append(args.labels[f'label_{lv}_count'])
         f.write(json.dumps({
             'sequence_size': args.sequence_size,
             'max_depth': args.max_depth,
-            'levels_size': levels_size,
+            'levels_size': args.labels['levels_size'],
             'val_path': args.val_path,
             'train_path': args.train_path,
             'test_path': args.test_path,
