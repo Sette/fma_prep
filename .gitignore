@@ -1,4 +1,4 @@
 .ipynb_checkpoints
 .idea
-preprocessing/__pycache__/
-dataset/__pycache__/
+.pyc
+.__pycache__
