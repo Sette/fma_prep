@@ -123,7 +123,7 @@ def create_metadata(args):
         f.write(json.dumps({
             'sequence_size': args.sequence_size,
             'max_depth': args.max_depth,
-            'levels_size': args.labels['levels_size'],
+            'levels_size': args.levels_size,
             'val_path': args.val_path,
             'train_path': args.train_path,
             'test_path': args.test_path,

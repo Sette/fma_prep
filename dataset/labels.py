@@ -62,19 +62,19 @@ def __create_labels__(categories_df, max_depth):
         data[f'{level_name}_inverse'] = []
         slice_df = categories_df[level_name].drop_duplicates()
         for idx, cat in enumerate(slice_df.values):
-            if cat != "":
+            if cat != 0:
                 cat = int(cat)
                 name = categories_df[categories_df[level_name] == cat][f'level{max_depth}_name'].values.tolist()[0]
                 data[level_name][cat] = idx
                 data[f'{level_name}_name'][cat] = '>'.join(name.split('>')[:level])
                 data[f'{level_name}_inverse'].append(cat)
         
-        data['levels_size'].append(len(data[f'{level_name}_name']))
+        data['levels_size'].append(len(data[f'{level_name}']))
 
     for values in categories_df.values:
         label_name = values[-1]
         labels = values[:-1]
-        for level, label in zip(range(1, max_depth+1),labels):
+        for level, label in zip(range(1, max_depth+1), labels):
             if label != "":
                 data[f'level{level}_name'][int(label)] = '>'.join(label_name.split('>')[:level])
             

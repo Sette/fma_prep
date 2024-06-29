@@ -12,7 +12,7 @@ import os
 from tqdm.notebook import tqdm
 
 from utils.dir import create_dir, __load_json__
-from dataset.labels import __create_labels__, get_all_structure
+from dataset.labels import __create_labels__, get_all_structure, get_labels_name
 from dataset.dataset_tensorflow import generate_tf_record 
 from dataset.dataset import select_dataset, create_metadata, load_features
 from dataset.dataset_torch import generate_torch_data
@@ -64,14 +64,14 @@ def prepare_paths(args):
     return tracks_df, args
 
 
-
 # Função para dividir os rótulos em níveis
 def split_labels(all_labels, level):
     return [label[level] if len(label) > level else None for labels in all_labels for label in labels]
 
-def prepare_labels(tracks_df,args):
+
+def prepare_labels(tracks_df, args):
     ##### Labels
-    # Loand genres df
+     # Loand genres df
     genres_df = pd.read_csv(os.path.join(args.metadata_path, 'genres.csv'))
     # Mapear os identificadores numéricos de gêneros para os nomes dos gêneros
     
@@ -90,7 +90,6 @@ def prepare_labels(tracks_df,args):
     ## Get structure form hierarchical classification
     #print(estruturas)
     tracks_df.loc[:, 'y_true'] = estruturas
-    tracks_df = tracks_df[['track_id', 'y_true']]
 
     ## Calculate labels_size
     max_depth = tracks_df.y_true.apply(lambda x: max([len(value) for value in x]))
@@ -115,9 +114,31 @@ def prepare_labels(tracks_df,args):
 
         tracks_df.loc[:, labels_name[idx]] = binarized_labels
 
+    tracks_df['all_binarized'] = tracks_df.apply(lambda row: [sublist for sublist in row[labels_name]], axis=1)
+
+    tracks_df = tracks_df[['track_id', 'y_true', 'all_binarized']]
+
+    #all_levels = categories_df.label5.progress_apply(lambda x: split_label(x))
+    all_labels = []
+    for idx, row in enumerate(tracks_df.y_true):
+        for labels in row:
+            labels.extend([0] * (max_depth - len(labels)))
+            all_labels.append(labels)
+            
+    categories_df = pd.DataFrame(all_labels, columns=labels_name).drop_duplicates()
+
+    
+    categories_df[f'level{max_depth}_name'] = [get_labels_name(categorie, genres_df) for categorie in categories_df.values]
+
+
+    # Write labels file
+    with open(args.categories_labels_path, 'w+') as f:
+        labels = __create_labels__(categories_df, max_depth)
+        args['levels_size'] = labels['levels_size']
+        f.write(json.dumps(labels))
+
     
     return tracks_df, args
-
 
 
 
@@ -146,13 +167,13 @@ def split_dataset(tracks_df,args):
     df_test_features = df_test.merge(df_features, on='track_id')
     df_train_features = df_train.merge(df_features, on='track_id')
 
-
-    print(df_train_features.columns)
-    print(type(df_train_features.y_true.iloc[0]))
-
     # df_train_features.to_csv(args['train_csv'], index=False)
     # df_test_features.to_csv(args['test_csv'], index=False)
     # df_val_features.to_csv(args['val_csv'], index=False)
+
+    df_train_features = df_train_features[['track_id', 'all_binarized', 'feature']]
+    df_test_features = df_test_features[['track_id', 'all_binarized', 'feature']]
+    df_val_features = df_val_features[['track_id', 'all_binarized', 'feature']]
 
     generate_tf_record(df_val_features, args, tf_path=args['val_path'])
     generate_tf_record(df_test_features, args, tf_path=args['test_path'])
