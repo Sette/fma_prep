@@ -9,6 +9,7 @@ def convert_label_to_string(parsed_labels):
 
     return all_labels
 
+
 def split_label(label):
     all_labels = []
     label = label.split('-')
@@ -34,64 +35,52 @@ def parse_label(label, label_size=5):
     return labels
 
 
-def get_labels_name(x, genres_df, max_depth=4):
+def get_labels_name(x, genres_df):
     full_name = []
     genre_root = ""
     for genre in x:
-        genre_df = genres_df[genres_df['genre_id'] == int(genre)]
-        if genre_df.empty:
-            genre_name = genre_root
-        else:
-            genre_name = genre_df.title.values.tolist()[0]
-            genre_root = genre_name
-
-        full_name.append(genre_name)
+        if genre != "":
+            genre_df = genres_df[genres_df['genre_id'] == int(genre)]
+            if genre_df.empty:
+                genre_name = genre_root
+            else:
+                genre_name = genre_df.title.values.tolist()[0]
+                genre_root = genre_name
+            full_name.append(genre_name)
     full_name = '>'.join(full_name)
 
     return full_name
     # return genres_df[genres_df['genre_id'] == int(x)].title.values.tolist()[0]
 
-
-def __create_labels__(categories_df, max_depth=3):
+def __create_labels__(categories_df, max_depth):
     data = {}
-    for level in range(max_depth):
-        level+=1
-        level_name = f'label_{level}'
-        idx = 0
+    data[f'levels_size'] = []
+    for level in range(1, max_depth+1):
+        level_name = f'level{level}'
         data[level_name] = {}
-        data[f'{level_name}_name'] = []
+        data[f'{level_name}_name'] = {}
         data[f'{level_name}_inverse'] = []
-        data[f'{level_name}_count'] = 0
-        categories = categories_df[level_name].values.tolist()
-        categories_names = categories_df[f'label_{max_depth+1}_name'].values.tolist()
+        slice_df = categories_df[level_name].drop_duplicates()
+        for idx, cat in enumerate(slice_df.values):
+            if cat != 0:
+                cat = int(cat)
+                name = categories_df[categories_df[level_name] == cat][f'level{max_depth}_name'].values.tolist()[0]
+                data[level_name][cat] = idx
+                data[f'{level_name}_name'][cat] = '>'.join(name.split('>')[:level])
+                data[f'{level_name}_inverse'].append(cat)
         
-        for id_x, cat, name in enumerate(set(categories, categories_names)):
-            data[level_name][cat] = idx
-            data[f'{level_name}_name'][cat] = '>'.join(name.split('>')[:level])
-            data[f'{level_name}_inverse'].append(cat)
-            data[f'{level_name}_count'] = idx + 1
-    
+        data['levels_size'].append(len(data[f'{level_name}']))
 
     for values in categories_df.values:
         label_name = values[-1]
         labels = values[:-1]
-        for level, label in zip(range(max_depth),labels):
-            print(level,label)
-            data[f'label_{level+1}_name'][int(label)] = '>'.join(label_name.split('>')[:level+1])
+        for level, label in zip(range(1, max_depth+1), labels):
+            if label != "":
+                data[f'level{level}_name'][int(label)] = '>'.join(label_name.split('>')[:level])
             
-        
-    #     name1 = '>'.join(name5.split('>')[:1])
-    #     name2 = '>'.join(name5.split('>')[:2])
-    #     name3 = '>'.join(name5.split('>')[:3])
-    #     name4 = '>'.join(name5.split('>')[:4])
-
-    #     data['label1_name'][cat1] = name1
-    #     data['label2_name'][cat2] = name2
-    #     data['label3_name'][cat3] = name3
-    #     data['label4_name'][cat4] = name4
-    #     data['label5_name'][cat5] = name5
-
     return data
+        
+
 
 
 def get_all_structure(estrutura, df_genres):
