@@ -1,7 +1,3 @@
-Claro! Aqui está o conteúdo do arquivo `README.md` sem os trechos de código:
-
----
-
 # Preparação de Dados - FMA Large Dataset
 
 Este projeto tem como objetivo a preparação dos dados do dataset FMA Large para treinamento de uma rede neural de classificação hierárquica multilabel. O dataset FMA Large contém informações detalhadas sobre músicas, como características de áudio e metadados, que serão utilizados para treinar um modelo que pode lidar com a complexidade das tarefas de classificação hierárquica.
@@ -86,7 +82,3 @@ Contribuições são bem-vindas! Sinta-se à vontade para abrir um issue ou envi
 ## Licença
 
 Este projeto está licenciado sob a Licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
-
----
-
-Esse é o conteúdo completo do arquivo `README.md` sem os códigos.
