@@ -8,13 +8,13 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.10"
 pandas = "^2.2.1"
-essentia = "^2.1b6.dev1110"
 tqdm = "^4.66.2"
 tensorflow = "^2.16.1"
 scikit-learn = "^1.4.1.post1"
 scikit-multilearn = "^0.2.0"
 torch = "^2.3.0"
-                                                                            
+essentia = "2.1b6.dev1110"
+
 
 [tool.poetry.group.dev.dependencies]
 jupyterlab = "^4.1.5"
