@@ -4,18 +4,15 @@
 # In[1]:
 
 import pandas as pd
-import numpy as np
-import shutil
 import json
 import ast
 import os
 from tqdm.notebook import tqdm
 
-from utils.dir import create_dir, __load_json__
-from dataset.labels import __create_labels__, get_all_structure, get_labels_name
-from dataset.dataset_tensorflow import generate_tf_record 
-from dataset.dataset import select_dataset, create_metadata, load_features
-from dataset.dataset_torch import generate_torch_data
+from fma_prep.utils.dir import create_dir
+from fma_prep.dataset.labels import __create_labels__, get_all_structure, get_labels_name
+from fma_prep.dataset.dataset_tensorflow import generate_tf_record
+from fma_prep.dataset.dataset import select_dataset, create_metadata, load_features
 from sklearn.preprocessing import MultiLabelBinarizer
 # In[2]:
 
