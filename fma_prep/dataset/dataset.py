@@ -42,11 +42,9 @@ def get_dataset(filename):
     return dataset
 
 
-def load_features(path, dataset='music_style'):
-    tfrecords_path = os.path.join(path, 'tfrecords', dataset)
-
-    tfrecords_path = [os.path.join(tfrecords_path, path) for path in os.listdir(tfrecords_path)]
-    dataset = get_dataset(tfrecords_path)
+def load_features(dataset_path):
+    dataset_path = [os.path.join(dataset_path, path) for path in os.listdir(dataset_path)]
+    dataset = get_dataset(dataset_path)
 
     df = pd.DataFrame(
         dataset.as_numpy_iterator(),
