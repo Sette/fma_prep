@@ -4,6 +4,7 @@
 # In[1]:
 
 import pandas as pd
+import argparse
 import json
 import ast
 import os
@@ -14,10 +15,12 @@ from fma_prep.dataset.labels import __create_labels__, get_all_structure, get_la
 from fma_prep.dataset.dataset_tensorflow import generate_tf_record
 from fma_prep.dataset.dataset import select_dataset, create_metadata, load_features
 from sklearn.preprocessing import MultiLabelBinarizer
+
 # In[2]:
 
 
 tqdm.pandas()
+
 
 def remover_sublistas_redundantes(lista_de_listas):
     max_depth = max([len(value) for value in lista_de_listas])
@@ -28,10 +31,11 @@ def remover_sublistas_redundantes(lista_de_listas):
 
     return new_sublist
 
+
 def prepare_paths(args):
     ## Define job paths
-    fma_path = os.path.join(args.root_dir,"fma")
-    job_path = os.path.join(fma_path,"trains")
+    fma_path = os.path.join(args.root_dir, "fma")
+    job_path = os.path.join(fma_path, "trains")
     args['job_path'] = os.path.join(job_path, args.train_id)
     args['tfrecord_path'] = os.path.join(args.job_path, "tfrecords")
     args['torch_path'] = os.path.join(args.job_path, "torch")
@@ -55,8 +59,7 @@ def prepare_paths(args):
     tracks_df["track_genres_all"] = tracks_df.track_genres_all.apply(lambda x: ast.literal_eval(x))
     tracks_df.drop(columns=['track_genres'], inplace=True)
     tracks_df.dropna(inplace=True)
-    tracks_df.rename(columns={'track_id_':'track_id'},inplace=True)
-
+    tracks_df.rename(columns={'track_id_': 'track_id'}, inplace=True)
 
     return tracks_df, args
 
@@ -68,10 +71,10 @@ def split_labels(all_labels, level):
 
 def prepare_labels(tracks_df, args):
     ##### Labels
-     # Loand genres df
+    # Loand genres df
     genres_df = pd.read_csv(os.path.join(args.metadata_path, 'genres.csv'))
     # Mapear os identificadores numéricos de gêneros para os nomes dos gêneros
-    
+
     # Inicialize uma lista para armazenar todos os caminhos de gêneros para cada exemplo
     estruturas = []
 
@@ -93,21 +96,22 @@ def prepare_labels(tracks_df, args):
     max_depth = int(max_depth.max())
     args['max_depth'] = max_depth
     print(f'max depth: {max_depth}')
-    
+
     labels_name = []
-    for level in range(1, max_depth+1):
+    for level in range(1, max_depth + 1):
         labels_name.append(f'level{level}')
-        idx = level-1
-         # Extrai os rótulos do nível atual
+        idx = level - 1
+        # Extrai os rótulos do nível atual
         level_labels = split_labels(tracks_df['y_true'], idx)
-         # Remove valores None
+        # Remove valores None
         level_labels = [[label] for label in level_labels if label is not None]
-        
+
         # Cria e aplica o MultiLabelBinarizer
         mlb = MultiLabelBinarizer()
         binarized = mlb.fit_transform(level_labels)
 
-        binarized_labels = [binarized[i] if i < len(binarized) else [0] * len(mlb.classes_) for i in range(len(tracks_df))]
+        binarized_labels = [binarized[i] if i < len(binarized) else [0] * len(mlb.classes_) for i in
+                            range(len(tracks_df))]
 
         tracks_df.loc[:, labels_name[idx]] = binarized_labels
 
@@ -121,12 +125,11 @@ def prepare_labels(tracks_df, args):
         for labels in row:
             labels.extend([0] * (max_depth - len(labels)))
             all_labels.append(labels)
-            
+
     categories_df = pd.DataFrame(all_labels, columns=labels_name).drop_duplicates()
 
-    
-    categories_df[f'level{max_depth}_name'] = [get_labels_name(categorie, genres_df) for categorie in categories_df.values]
-
+    categories_df[f'level{max_depth}_name'] = [get_labels_name(categorie, genres_df) for categorie in
+                                               categories_df.values]
 
     # Write labels file
     with open(args.categories_labels_path, 'w+') as f:
@@ -134,12 +137,10 @@ def prepare_labels(tracks_df, args):
         args['levels_size'] = labels['levels_size']
         f.write(json.dumps(labels))
 
-    
     return tracks_df, args
 
 
-
-def split_dataset(tracks_df,args):
+def split_dataset(tracks_df, args):
     #### Split dataset
 
     df_train, df_test, df_val = select_dataset(tracks_df, args)
@@ -156,7 +157,7 @@ def split_dataset(tracks_df,args):
     args['test_csv'] = os.path.join(args.job_path, "test.csv")
     args['val_csv'] = os.path.join(args.job_path, "val.csv")
 
-    df_features = load_features(args.dataset_path, dataset=args.embeddings)
+    df_features = load_features(args.tfrecords_path)
 
     df_features.dropna(inplace=True)
 
@@ -187,24 +188,24 @@ def split_dataset(tracks_df,args):
     # ## Create metadata file
     create_metadata(args)
 
-   
 
 def run():
-    args = pd.Series({
-        "root_dir": "/mnt/disks/data/",
-        "dataset_path": "/mnt/disks/data/fma/fma_large", 
-        "embeddings": "music_style",
-        "sequence_size": 1280,
-        "train_id": "hierarchical_tworoots_dev",
-        'sample_size': 0.1
-    })
+    # ArgumentParser configuration
+    parser = argparse.ArgumentParser(description="Music data processing.")
 
+    parser.add_argument('--root_dir', type=str, default="/mnt/disks/data/", help="Root directory of the data.")
+    parser.add_argument('--dataset_path', type=str, default="/mnt/disks/data/fma/fma_large",
+                        help="Path to the dataset.")
+    parser.add_argument('--sequence_size', type=int, default=1280, help="Size of the sequence.")
+    parser.add_argument('--train_id', type=str, default="hierarchical_tworoots_dev", help="Training ID.")
+    parser.add_argument('--sample_size', type=float, default=1, help="Size of the sample.")
 
+    # Parse command-line arguments
+    args = parser.parse_args()
+
+    # Convert arguments to a pandas Series
+    args = pd.Series(vars(args))
     tracks_df, args = prepare_paths(args)
-    tracks_df = tracks_df[tracks_df['track_genre_top'].isin(['Rock','Electronic'])]
-    tracks_df, args = prepare_labels(tracks_df,args)
-    split_dataset(tracks_df,args)
-
-
-
-
+    tracks_df = tracks_df[tracks_df['track_genre_top'].isin(['Rock', 'Electronic'])]
+    tracks_df, args = prepare_labels(tracks_df, args)
+    split_dataset(tracks_df, args)
