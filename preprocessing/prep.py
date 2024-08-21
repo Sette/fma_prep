@@ -4,8 +4,7 @@
 # In[1]:
 
 import pandas as pd
-import numpy as np
-import shutil
+import pickle
 import json
 import ast
 import os
@@ -13,9 +12,9 @@ from tqdm.notebook import tqdm
 
 from utils.dir import create_dir, __load_json__
 from dataset.labels import __create_labels__, get_all_structure, get_labels_name
-from dataset.dataset_tensorflow import generate_tf_record 
-from dataset.dataset import select_dataset, create_metadata, load_features
-from dataset.dataset_torch import generate_torch_data
+from dataset.dataset_tensorflow import generate_tf_record, load_features
+from dataset.dataset import select_dataset, create_metadata
+from dataset.dataset_torch import generate_pt_record
 from sklearn.preprocessing import MultiLabelBinarizer
 # In[2]:
 
@@ -41,6 +40,7 @@ def prepare_paths(args):
     args['models_path'] = os.path.join(args.root_dir, "models")
     args['metadata_path'] = os.path.join(fma_path, "fma_metadata")
     args['metadata_train_path'] = os.path.join(args['job_path'], "metadata.json")
+    args['mlb_path'] = os.path.join(args['job_path'], "mlb.pkl")
     args['categories_labels_path'] = os.path.join(args['job_path'], "labels.json")
 
     ## Create poth if it isn't exist
@@ -77,25 +77,47 @@ def prepare_labels(tracks_df, args):
     
     # Inicialize uma lista para armazenar todos os caminhos de gêneros para cada exemplo
     estruturas = []
-
     # Iterar sobre as faixas e seus gêneros associados
     for track_genres in tracks_df['track_genres_all']:
         caminho_id = [get_all_structure(genre_id, genres_df) for genre_id in track_genres]
         estruturas.append(caminho_id)
 
+    max_depth = 0
     for idx, caminho in enumerate(estruturas):
         caminho.sort(key=len, reverse=True)
-        estruturas[idx] = remover_sublistas_redundantes(caminho)
+        caminho = remover_sublistas_redundantes(caminho)
+        estruturas[idx] = caminho
+        if len(caminho) > max_depth:
+            max_depth = len(caminho)
 
     ## Get structure form hierarchical classification
-    #print(estruturas)
     tracks_df.loc[:, 'y_true'] = estruturas
+    all_labels = []
+    lens = []
+    for idx, row in enumerate(tracks_df.y_true):
+        for labels in row:
+            lens.append(len(labels))
+            converted_labels = labels.copy()
+            converted_labels.extend([0] * (max_depth - len(labels)))
+            all_labels.append(converted_labels)
 
-    ## Calculate labels_size
-    max_depth = tracks_df.y_true.apply(lambda x: max([len(value) for value in x]))
-    max_depth = int(max_depth.max())
+    labels_name = []
+    for level in range(1, max_depth+1):
+        labels_name.append(f'level{level}')
+    
+    categories_df = pd.DataFrame(all_labels, columns=labels_name).drop_duplicates()
+
+    valid_labels_name = []
+    for label_name in labels_name:
+        unique_labels = [x for x in categories_df[label_name].unique() if x != 0]
+        if len(unique_labels) > 1:
+            valid_labels_name.append(label_name)
+
+    max_depth = len(valid_labels_name)
     args['max_depth'] = max_depth
-    print(f'max depth: {max_depth}')
+    categories_df = categories_df[valid_labels_name]
+
+    mlbs = []
     
     labels_name = []
     for level in range(1, max_depth+1):
@@ -108,26 +130,21 @@ def prepare_labels(tracks_df, args):
         
         # Cria e aplica o MultiLabelBinarizer
         mlb = MultiLabelBinarizer()
-        binarized = mlb.fit_transform(level_labels)
+        binary_labels = mlb.fit_transform(level_labels)
+        mlbs.append(mlb)
 
-        binarized_labels = [binarized[i] if i < len(binarized) else [0] * len(mlb.classes_) for i in range(len(tracks_df))]
+        binary_labels = [binary_labels[i] if i < len(binary_labels) else [0] * len(mlb.classes_) for i in range(len(tracks_df))]
 
-        tracks_df.loc[:, labels_name[idx]] = binarized_labels
+        tracks_df.loc[:, labels_name[idx]] = binary_labels
+
+    # Serializar a lista de mlb
+    with open(args.mlb_path, 'wb') as file:
+        pickle.dump(mlbs, file)
 
     tracks_df['all_binarized'] = tracks_df.apply(lambda row: [sublist for sublist in row[labels_name]], axis=1)
 
     tracks_df = tracks_df[['track_id', 'y_true', 'all_binarized']]
 
-    #all_levels = categories_df.label5.progress_apply(lambda x: split_label(x))
-    all_labels = []
-    for idx, row in enumerate(tracks_df.y_true):
-        for labels in row:
-            labels.extend([0] * (max_depth - len(labels)))
-            all_labels.append(labels)
-            
-    categories_df = pd.DataFrame(all_labels, columns=labels_name).drop_duplicates()
-
-    
     categories_df[f'level{max_depth}_name'] = [get_labels_name(categorie, genres_df) for categorie in categories_df.values]
 
 
@@ -151,9 +168,9 @@ def split_dataset(tracks_df,args):
     args['test_path'] = os.path.join(args.tfrecord_path, 'test')
     args['train_path'] = os.path.join(args.tfrecord_path, 'train')
 
-    args['val_torch_path'] = os.path.join(args.torch_path, 'val.pth')
-    args['test_torch_path'] = os.path.join(args.torch_path, 'test.pth')
-    args['train_torch_path'] = os.path.join(args.torch_path, 'train.pth')
+    args['val_torch_path'] = os.path.join(args.torch_path, 'val')
+    args['test_torch_path'] = os.path.join(args.torch_path, 'test')
+    args['train_torch_path'] = os.path.join(args.torch_path, 'train')
 
     args['train_csv'] = os.path.join(args.job_path, "train.csv")
     args['test_csv'] = os.path.join(args.job_path, "test.csv")
@@ -163,25 +180,25 @@ def split_dataset(tracks_df,args):
 
     df_features.dropna(inplace=True)
 
+    df_train.to_csv(args['train_csv'], index=False)
+    df_test.to_csv(args['test_csv'], index=False)
+    df_val.to_csv(args['val_csv'], index=False)
+
     df_val_features = df_val.merge(df_features, on='track_id')
     df_test_features = df_test.merge(df_features, on='track_id')
     df_train_features = df_train.merge(df_features, on='track_id')
-
-    # df_train_features.to_csv(args['train_csv'], index=False)
-    # df_test_features.to_csv(args['test_csv'], index=False)
-    # df_val_features.to_csv(args['val_csv'], index=False)
 
     df_train_features = df_train_features[['track_id', 'all_binarized', 'feature']]
     df_test_features = df_test_features[['track_id', 'all_binarized', 'feature']]
     df_val_features = df_val_features[['track_id', 'all_binarized', 'feature']]
 
-    generate_tf_record(df_val_features, args, tf_path=args['val_path'])
-    generate_tf_record(df_test_features, args, tf_path=args['test_path'])
-    generate_tf_record(df_train_features, args, tf_path=args['train_path'])
+    generate_tf_record(df_val_features, tf_path=args['val_path'])
+    generate_tf_record(df_test_features, tf_path=args['test_path'])
+    generate_tf_record(df_train_features, tf_path=args['train_path'])
 
-    # generate_torch_data(df_val_features, args, save_path=args['val_torch_path'], batch_size=1024 * 50, shuffle=True)
-    # generate_torch_data(df_test_features, args, save_path=args['test_torch_path'], batch_size=1024 * 50, shuffle=True)
-    # generate_torch_data(df_train_features, args, save_path=args['train_torch_path'], batch_size=1024 * 50, shuffle=True)
+    generate_pt_record(df_val_features, pt_path=args['val_torch_path'])
+    generate_pt_record(df_test_features, pt_path=args['test_torch_path'])
+    generate_pt_record(df_train_features, pt_path=args['train_torch_path'])
 
     args['val_len'] = df_val.shape[0]
     args['test_len'] = df_test.shape[0]
@@ -198,8 +215,8 @@ def run():
         "dataset_path": "/mnt/disks/data/fma/fma_large", 
         "embeddings": "music_style",
         "sequence_size": 1280,
-        "train_id": "hierarchical_tworoots_dev",
-        'sample_size': 0.1
+        "train_id": "hierarchical_tworoots",
+        'sample_size': 1
     })
 
 

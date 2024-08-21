@@ -1,65 +1,11 @@
 import pandas as pd
-import numpy as np
-import tensorflow as tf
-from sklearn.model_selection import train_test_split
-
-import os
 import json
-import math
 
 from tqdm import tqdm
 
 from sklearn.utils import shuffle
 from math import ceil
 
-
-def parse_tfr_element(element):
-    # use the same structure as above; it's kinda an outline of the structure we now want to create
-    data = {
-        'emb': tf.io.FixedLenFeature([], tf.string),
-        'track_id': tf.io.FixedLenFeature([], tf.int64),
-    }
-
-    content = tf.io.parse_single_example(element, data)
-
-    track_id = content['track_id']
-    emb = content['emb']
-
-    # get our 'feature'-- our image -- and reshape it appropriately
-    feature = tf.io.parse_tensor(emb, out_type=tf.float32)
-    return (feature, track_id)
-
-
-def get_dataset(filename):
-    # create the dataset
-    dataset = tf.data.TFRecordDataset(filename)
-
-    # pass every single feature through our mapping function
-    dataset = dataset.map(
-        parse_tfr_element
-    )
-
-    return dataset
-
-
-def load_features(path, dataset='music_style'):
-    tfrecords_path = os.path.join(path, 'tfrecords', dataset)
-
-    tfrecords_path = [os.path.join(tfrecords_path, path) for path in os.listdir(tfrecords_path)]
-    dataset = get_dataset(tfrecords_path)
-
-    df = pd.DataFrame(
-        dataset.as_numpy_iterator(),
-        columns=['feature', 'track_id']
-    )
-
-    df.dropna(inplace=True)
-
-    try:
-        df.feature = df.feature.apply(lambda x: x[0] if x.shape[0] != 0 else None)
-    except:
-        print('Erro ao carregar features')
-    return df
 
 # Função para converter listas em strings
 def convert_list_to_string(lst):
@@ -89,8 +35,8 @@ def select_dataset(df, args):
     
     count = 0
     items_count = 0
-    oversampling_size = 5  # int(group_sizes.mean() + group_sizes.std() * 2)
-    print(f"oversampling_size: {oversampling_size}")
+    oversampling_size = 15  # int(group_sizes.mean() + group_sizes.std() * 2)
+    #print(f"oversampling_size: {oversampling_size}")
     
     for _, group in tqdm(groups):
         test, train_to_split = __split_data__(group, 0.2)  # 20%
@@ -103,7 +49,7 @@ def select_dataset(df, args):
         ## this increase the numner of samples when classes has low quantity
         count_train = len(train)
         if count_train < oversampling_size:
-            print(f'Oversampling: {train.y_true.iloc[0]}')
+            #print(f'Oversampling: {train.y_true.iloc[0]}')
             train = train.sample(oversampling_size, replace=True)
     
         trains.append(train)

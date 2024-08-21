@@ -1,34 +1,9 @@
-import pandas as pd
-import numpy as np
+
 import tensorflow as tf
-from sklearn.model_selection import train_test_split
-
-import os
-import json
 import math
-
-from tqdm import tqdm
-
-from sklearn.utils import shuffle
-from math import ceil
-
+import os
+import pandas as pd
 from utils.dir import create_dir
-
-def parse_tfr_element(element):
-    # use the same structure as above; it's kinda an outline of the structure we now want to create
-    data = {
-        'emb': tf.io.FixedLenFeature([], tf.string),
-        'track_id': tf.io.FixedLenFeature([], tf.int64),
-    }
-
-    content = tf.io.parse_single_example(element, data)
-
-    track_id = content['track_id']
-    emb = content['emb']
-
-    # get our 'feature'-- our image -- and reshape it appropriately
-    feature = tf.io.parse_tensor(emb, out_type=tf.float32)
-    return (feature, track_id)
 
 
 def _float_feature(value):
@@ -50,6 +25,56 @@ def serialize_array(array):
     return array
     
 
+def get_dataset(filename):
+    # create the dataset
+    dataset = tf.data.TFRecordDataset(filename)
+
+    # pass every single feature through our mapping function
+    dataset = dataset.map(
+        parse_tfr_element
+    )
+
+    return dataset
+
+
+def load_features(path, dataset='music_style'):
+    tfrecords_path = os.path.join(path, 'tfrecords', dataset)
+
+    tfrecords_path = [os.path.join(tfrecords_path, path) for path in os.listdir(tfrecords_path)]
+    dataset = get_dataset(tfrecords_path)
+
+    df = pd.DataFrame(
+        dataset.as_numpy_iterator(),
+        columns=['feature', 'track_id']
+    )
+
+    df.dropna(inplace=True)
+
+    try:
+        df.feature = df.feature.apply(lambda x: x[0] if x.shape[0] != 0 else None)
+    except:
+        print('Erro ao carregar features')
+    return df
+
+
+
+def parse_tfr_element(element):
+    # use the same structure as above; it's kinda an outline of the structure we now want to create
+    data = {
+        'emb': tf.io.FixedLenFeature([], tf.string),
+        'track_id': tf.io.FixedLenFeature([], tf.int64),
+    }
+
+    content = tf.io.parse_single_example(element, data)
+
+    track_id = content['track_id']
+    emb = content['emb']
+
+    # get our 'feature'-- our image -- and reshape it appropriately
+    feature = tf.io.parse_tensor(emb, out_type=tf.float32)
+    return (feature, track_id)
+
+
 def create_example(data):
     track_id, labels, music = data
     data = {}
@@ -59,7 +84,6 @@ def create_example(data):
 
     for idx, level in enumerate(labels, start=1):
         label_key = f'level{idx}'
-        print(label_key)
         data[label_key] =  _int64List_feature(level)
 
     out = tf.train.Example(features=tf.train.Features(feature=data))
@@ -67,7 +91,7 @@ def create_example(data):
     return out
 
 
-def generate_tf_record(df, args, tf_path='val'):
+def generate_tf_record(df, tf_path='val'):
     create_dir(tf_path)
 
     batch_size = 1024 * 50  # 50k records from each file batch
