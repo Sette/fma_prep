@@ -1,7 +1,7 @@
 .ipynb_checkpoints
 .idea
 .pyc
-preprocessing/__pycache__
-dataset/__pycache__
+fma_prep/preprocessing/__pycache__
+fma_prep/dataset/__pycache__
 notebooks/__pycache__
-utils/__pycache__
+fma_prep/utils/__pycache__

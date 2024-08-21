@@ -5,16 +5,16 @@
 
 import pandas as pd
 import pickle
+import argparse
 import json
 import ast
 import os
 from tqdm.notebook import tqdm
 
-from utils.dir import create_dir, __load_json__
-from dataset.labels import __create_labels__, get_all_structure, get_labels_name
-from dataset.dataset_tensorflow import generate_tf_record, load_features
-from dataset.dataset import select_dataset, create_metadata
-from dataset.dataset_torch import generate_pt_record
+from fma_prep.utils.dir import create_dir
+from fma_prep.dataset.labels import __create_labels__, get_all_structure, get_labels_name
+from fma_prep.dataset.dataset_tensorflow import generate_tf_record
+from fma_prep.dataset.dataset import select_dataset, create_metadata, load_features
 from sklearn.preprocessing import MultiLabelBinarizer
 # In[2]:
 
@@ -32,8 +32,8 @@ def remover_sublistas_redundantes(lista_de_listas):
 
 def prepare_paths(args):
     ## Define job paths
-    fma_path = os.path.join(args.root_dir,"fma")
-    job_path = os.path.join(fma_path,"trains")
+    fma_path = os.path.join(args.root_dir, "fma")
+    job_path = os.path.join(fma_path, "trains")
     args['job_path'] = os.path.join(job_path, args.train_id)
     args['tfrecord_path'] = os.path.join(args.job_path, "tfrecords")
     args['torch_path'] = os.path.join(args.job_path, "torch")
@@ -104,7 +104,7 @@ def prepare_labels(tracks_df, args):
     labels_name = []
     for level in range(1, max_depth+1):
         labels_name.append(f'level{level}')
-    
+
     categories_df = pd.DataFrame(all_labels, columns=labels_name).drop_duplicates()
 
     valid_labels_name = []
@@ -154,7 +154,6 @@ def prepare_labels(tracks_df, args):
         args['levels_size'] = labels['levels_size']
         f.write(json.dumps(labels))
 
-    
     return tracks_df, args
 
 
@@ -207,24 +206,24 @@ def split_dataset(tracks_df,args):
     # ## Create metadata file
     create_metadata(args)
 
-   
 
 def run():
-    args = pd.Series({
-        "root_dir": "/mnt/disks/data/",
-        "dataset_path": "/mnt/disks/data/fma/fma_large", 
-        "embeddings": "music_style",
-        "sequence_size": 1280,
-        "train_id": "hierarchical_tworoots",
-        'sample_size': 1
-    })
+    # ArgumentParser configuration
+    parser = argparse.ArgumentParser(description="Music data processing.")
 
+    parser.add_argument('--root_dir', type=str, default="/mnt/disks/data/", help="Root directory of the data.")
+    parser.add_argument('--dataset_path', type=str, default="/mnt/disks/data/fma/fma_large",
+                        help="Path to the dataset.")
+    parser.add_argument('--sequence_size', type=int, default=1280, help="Size of the sequence.")
+    parser.add_argument('--train_id', type=str, default="hierarchical_tworoots_dev", help="Training ID.")
+    parser.add_argument('--sample_size', type=float, default=1, help="Size of the sample.")
 
+    # Parse command-line arguments
+    args = parser.parse_args()
+
+    # Convert arguments to a pandas Series
+    args = pd.Series(vars(args))
     tracks_df, args = prepare_paths(args)
-    tracks_df = tracks_df[tracks_df['track_genre_top'].isin(['Rock','Electronic'])]
-    tracks_df, args = prepare_labels(tracks_df,args)
-    split_dataset(tracks_df,args)
-
-
-
-
+    tracks_df = tracks_df[tracks_df['track_genre_top'].isin(['Rock', 'Electronic'])]
+    tracks_df, args = prepare_labels(tracks_df, args)
+    split_dataset(tracks_df, args)

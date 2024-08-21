@@ -1,11 +1,63 @@
 import pandas as pd
+import numpy as np
+import tensorflow as tf
+from sklearn.model_selection import train_test_split
+
+import os
 import json
+import math
 
 from tqdm import tqdm
 
 from sklearn.utils import shuffle
 from math import ceil
 
+
+def parse_tfr_element(element):
+    # use the same structure as above; it's kinda an outline of the structure we now want to create
+    data = {
+        'emb': tf.io.FixedLenFeature([], tf.string),
+        'track_id': tf.io.FixedLenFeature([], tf.int64),
+    }
+
+    content = tf.io.parse_single_example(element, data)
+
+    track_id = content['track_id']
+    emb = content['emb']
+
+    # get our 'feature'-- our image -- and reshape it appropriately
+    feature = tf.io.parse_tensor(emb, out_type=tf.float32)
+    return (feature, track_id)
+
+
+def get_dataset(filename):
+    # create the dataset
+    dataset = tf.data.TFRecordDataset(filename)
+
+    # pass every single feature through our mapping function
+    dataset = dataset.map(
+        parse_tfr_element
+    )
+
+    return dataset
+
+
+def load_features(dataset_path):
+    dataset_path = [os.path.join(dataset_path, path) for path in os.listdir(dataset_path)]
+    dataset = get_dataset(dataset_path)
+
+    df = pd.DataFrame(
+        dataset.as_numpy_iterator(),
+        columns=['feature', 'track_id']
+    )
+
+    df.dropna(inplace=True)
+
+    try:
+        df.feature = df.feature.apply(lambda x: x[0] if x.shape[0] != 0 else None)
+    except:
+        print('Erro ao carregar features')
+    return df
 
 # Função para converter listas em strings
 def convert_list_to_string(lst):
