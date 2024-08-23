@@ -25,11 +25,11 @@ O projeto foca na extração, transformação e organização dos dados contidos
 ## Estrutura do Projeto
 
 ```
-├── data/
+├── fma_prep/
 │   ├── raw/                 # Dados brutos do FMA Large Dataset
 │   ├── processed/           # Dados processados e prontos para uso
 │   └── labels/              # Labels hierárquicos gerados para cada faixa
-├── src/
+├── notebooks/
 │   ├── data_preparation.py  # Script principal para preparação dos dados
 │   └── utils.py             # Funções auxiliares para transformação de dados
 ├── README.md                # Documentação do projeto
