@@ -32,18 +32,17 @@ def remover_sublistas_redundantes(lista_de_listas):
 
 def prepare_paths(args):
     ## Define job paths
-    input_dir = args.input_dir
-    output_dir = args.output_dir
+    input_path = args.input_path
+    output_path = args.output_path
 
-    fma_path = os.path.join(args.input_dir, "fma")
-    job_path = os.path.join(output_dir, "trains")
+    job_path = os.path.join(output_path, "trains")
     args['job_path'] = os.path.join(job_path, args.train_id)
-    args['tfrecord_path'] = input_dir
+    args['tfrecord_path'] = input_path
     args['torch_path'] = os.path.join(args.job_path, "torch")
     args['models_path'] = os.path.join(args.root_dir, "models")
-    args['metadata_path'] = input_dir
+    args['metadata_path'] = input_path
     args['metadata_train_path'] = os.path.join(args['job_path'], "metadata.json")
-    args['mlb_path'] = os.path.join(args['job_path'], "mlb.pkl")
+    args['mlb_path'] = os.path.join(job_path, "mlb.pkl")
     args['categories_labels_path'] = os.path.join(args['job_path'], "labels.json")
 
     ## Create poth if it isn't exist
