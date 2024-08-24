@@ -32,13 +32,16 @@ def remover_sublistas_redundantes(lista_de_listas):
 
 def prepare_paths(args):
     ## Define job paths
-    fma_path = os.path.join(args.root_dir, "fma")
-    job_path = os.path.join(fma_path, "trains")
+    input_dir = args.input_dir
+    output_dir = args.output_dir
+
+    fma_path = os.path.join(args.input_dir, "fma")
+    job_path = os.path.join(output_dir, "trains")
     args['job_path'] = os.path.join(job_path, args.train_id)
-    args['tfrecord_path'] = os.path.join(args.job_path, "tfrecords")
+    args['tfrecord_path'] = input_dir
     args['torch_path'] = os.path.join(args.job_path, "torch")
     args['models_path'] = os.path.join(args.root_dir, "models")
-    args['metadata_path'] = os.path.join(fma_path, "fma_metadata")
+    args['metadata_path'] = input_dir
     args['metadata_train_path'] = os.path.join(args['job_path'], "metadata.json")
     args['mlb_path'] = os.path.join(args['job_path'], "mlb.pkl")
     args['categories_labels_path'] = os.path.join(args['job_path'], "labels.json")
@@ -211,9 +214,8 @@ def run():
     # ArgumentParser configuration
     parser = argparse.ArgumentParser(description="Music data processing.")
 
-    parser.add_argument('--root_dir', type=str, default="/mnt/disks/data/", help="Root directory of the data.")
-    parser.add_argument('--dataset_path', type=str, default="/mnt/disks/data/fma/fma_large",
-                        help="Path to the dataset.")
+    parser.add_argument('--input_path', type=str, default="/mnt/disks/data/", help="Root directory of the data.")
+    parser.add_argument('--output_path', type=str, default="/mnt/disks/data/", help="Path to the dataset.")
     parser.add_argument('--sequence_size', type=int, default=1280, help="Size of the sequence.")
     parser.add_argument('--train_id', type=str, default="hierarchical_tworoots_dev", help="Training ID.")
     parser.add_argument('--sample_size', type=float, default=1, help="Size of the sample.")
