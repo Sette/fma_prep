@@ -214,6 +214,7 @@ def run():
 
     parser.add_argument('--input_path', type=str, default="/mnt/disks/data/", help="Root directory of the data.")
     parser.add_argument('--output_path', type=str, default="/mnt/disks/data/", help="Path to the dataset.")
+    parser.add_argument('--top_genres', type=list, default='', help="List of top Genres.")
     parser.add_argument('--sequence_size', type=int, default=1280, help="Size of the sequence.")
     parser.add_argument('--train_id', type=str, default="hierarchical_tworoots_dev", help="Training ID.")
     parser.add_argument('--sample_size', type=float, default=1, help="Size of the sample.")
@@ -224,6 +225,7 @@ def run():
     # Convert arguments to a pandas Series
     args = pd.Series(vars(args))
     tracks_df, args = prepare_paths(args)
-    tracks_df = tracks_df[tracks_df['track_genre_top'].isin(['Rock', 'Electronic'])]
+    if args['top_genres'] != '':
+        tracks_df = tracks_df[tracks_df['track_genre_top'].isin(args['top_genres'])]
     tracks_df, args = prepare_labels(tracks_df, args)
     split_dataset(tracks_df, args)
