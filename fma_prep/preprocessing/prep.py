@@ -235,7 +235,7 @@ def run():
     tracks_df, args = prepare_paths(args)
     # Converter a string de volta para uma lista
     if args.top_genres:
-        print(f"Using top genres list. {top_genres}")
+        print(f"Using top genres list. {args['top_genres']}")
         tracks_df = tracks_df[tracks_df['track_genre_top'].isin(args['top_genres'])]
     print("Crerating labels structures.")
     tracks_df, args = prepare_labels(tracks_df, args)
