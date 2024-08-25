@@ -58,7 +58,6 @@ def create_example(data):
 
 def generate_tf_record(df, tf_path='val'):
     create_dir(tf_path)
-
     batch_size = 1024 * 50  # 50k records from each file batch
     count = 0
     total = math.ceil(len(df) / batch_size)

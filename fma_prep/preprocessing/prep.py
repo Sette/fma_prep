@@ -37,7 +37,7 @@ def prepare_paths(args):
 
     job_path = os.path.join(output_path, "trains")
     args['job_path'] = os.path.join(job_path, args.train_id)
-    args['tfrecord_path'] = input_path
+    args['tfrecord_path'] = os.path.join(args.job_path, "tfrecrods")
     args['torch_path'] = os.path.join(args.job_path, "torch")
     args['metadata_path'] = os.path.join(input_path, 'fma_metadata')
     args['metadata_train_path'] = os.path.join(args['job_path'], "metadata.json")
