@@ -176,7 +176,7 @@ def split_dataset(tracks_df,args):
     args['test_csv'] = os.path.join(args.job_path, "test.csv")
     args['val_csv'] = os.path.join(args.job_path, "val.csv")
 
-    df_features = load_features(args.dataset_path, dataset=args.embeddings)
+    df_features = load_features(args.input_path)
 
     df_features.dropna(inplace=True)
 

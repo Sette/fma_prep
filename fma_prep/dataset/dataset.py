@@ -43,7 +43,7 @@ def get_dataset(filename):
 
 
 def load_features(dataset_path):
-    dataset_path = [os.path.join(dataset_path, path) for path in os.listdir(dataset_path)]
+    dataset_path = [os.path.join(dataset_path, path) for path in os.listdir(dataset_path) if path.endswith('.tfrecord')]
     dataset = get_dataset(dataset_path)
 
     df = pd.DataFrame(
