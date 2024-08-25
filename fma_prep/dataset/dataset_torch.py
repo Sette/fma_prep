@@ -1,6 +1,6 @@
 import torch
 import math
-from utils.dir import create_dir
+from fma_prep.utils.dir import create_dir
 
 def create_example(data):
     track_id, labels, music = data
