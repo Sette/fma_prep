@@ -231,12 +231,12 @@ def run():
 
     # Convert arguments to a pandas Series
     args = pd.Series(vars(args))
-    logging.info("Prepraring paths.")
+    print("Prepraring paths.")
     tracks_df, args = prepare_paths(args)
     if args['top_genres'] != '':
-        logging.info("Using top genres list.")
+        print(f"Using top genres list. {args['top_genres']}")
         tracks_df = tracks_df[tracks_df['track_genre_top'].isin(args['top_genres'])]
-    logging.info("Crerating labels structures.")
+    print("Crerating labels structures.")
     tracks_df, args = prepare_labels(tracks_df, args)
-    logging.info("Spliting dataset in train/test/val.")
+    print("Spliting dataset in train/test/val.")
     split_dataset(tracks_df, args)
