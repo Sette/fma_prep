@@ -19,6 +19,10 @@ from fma_prep.dataset.dataset import select_dataset, create_metadata, load_featu
 from sklearn.preprocessing import MultiLabelBinarizer
 # In[2]:
 
+import logging
+
+# Configure the logging
+logging.basicConfig(level=logging.INFO)
 
 tqdm.pandas()
 
@@ -222,11 +226,17 @@ def run():
 
     # Parse command-line arguments
     args = parser.parse_args()
+    # Log an info message
+
 
     # Convert arguments to a pandas Series
     args = pd.Series(vars(args))
+    logging.info("Prepraring paths.")
     tracks_df, args = prepare_paths(args)
     if args['top_genres'] != '':
+        logging.info("Using top genres list.")
         tracks_df = tracks_df[tracks_df['track_genre_top'].isin(args['top_genres'])]
+    logging.info("Crerating labels structures.")
     tracks_df, args = prepare_labels(tracks_df, args)
+    logging.info("Spliting dataset in train/test/val.")
     split_dataset(tracks_df, args)
