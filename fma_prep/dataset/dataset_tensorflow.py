@@ -56,7 +56,7 @@ def create_example(data):
     return out
 
 
-def generate_tf_record(df, args, tf_path='val'):
+def generate_tf_record(df, tf_path='val'):
     create_dir(tf_path)
 
     batch_size = 1024 * 50  # 50k records from each file batch
