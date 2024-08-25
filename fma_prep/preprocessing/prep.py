@@ -219,7 +219,7 @@ def run():
 
     parser.add_argument('--input_path', type=str, default="/mnt/disks/data/", help="Root directory of the data.")
     parser.add_argument('--output_path', type=str, default="/mnt/disks/data/", help="Path to the dataset.")
-    parser.add_argument('--top_genres', type=list, default='', help="List of top Genres.")
+    parser.add_argument('--top_genres', type=str, nargs='+', default=[], help="List of top genres.")
     parser.add_argument('--sequence_size', type=int, default=1280, help="Size of the sequence.")
     parser.add_argument('--train_id', type=str, default="hierarchical_tworoots_dev", help="Training ID.")
     parser.add_argument('--sample_size', type=float, default=1, help="Size of the sample.")
@@ -234,8 +234,7 @@ def run():
     print("Prepraring paths.")
     tracks_df, args = prepare_paths(args)
     # Converter a string de volta para uma lista
-    top_genres = ast.literal_eval(args.top_genres)
-    if top_genres != '':
+    if args.top_genres:
         print(f"Using top genres list. {top_genres}")
         tracks_df = tracks_df[tracks_df['track_genre_top'].isin(args['top_genres'])]
     print("Crerating labels structures.")
