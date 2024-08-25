@@ -14,6 +14,7 @@ from tqdm.notebook import tqdm
 from fma_prep.utils.dir import create_dir
 from fma_prep.dataset.labels import __create_labels__, get_all_structure, get_labels_name
 from fma_prep.dataset.dataset_tensorflow import generate_tf_record
+from fma_prep.dataset.dataset_torch import generate_pt_record
 from fma_prep.dataset.dataset import select_dataset, create_metadata, load_features
 from sklearn.preprocessing import MultiLabelBinarizer
 # In[2]:
