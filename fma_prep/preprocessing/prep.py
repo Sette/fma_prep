@@ -42,14 +42,13 @@ def prepare_paths(args):
     input_path = args.input_path
     output_path = args.output_path
 
-    job_path = os.path.join(output_path, "trains")
-    args['job_path'] = os.path.join(job_path, args.train_id)
+    args['job_path'] = os.path.join(output_path, "trains" ,args.train_id)
     args['tfrecord_path'] = os.path.join(args.job_path, "tfrecrods")
     args['torch_path'] = os.path.join(args.job_path, "torch")
     args['metadata_path'] = os.path.join(input_path, 'fma_metadata')
     args['metadata_train_path'] = os.path.join(args['job_path'], "metadata.json")
-    args['mlb_path'] = os.path.join(args.job_path, "mlb.pkl")
-    args['categories_labels_path'] = os.path.join(args.job_path, "labels.json")
+    args['mlb_path'] = os.path.join(args['job_path'], "mlb.pkl")
+    args['categories_labels_path'] = os.path.join(args['job_path'], "labels.json")
 
     ## Create poth if it isn't exist
     create_dir(args['job_path'])
