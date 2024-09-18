@@ -87,7 +87,7 @@ def select_dataset(df, args):
     
     count = 0
     items_count = 0
-    oversampling_size = 15  # int(group_sizes.mean() + group_sizes.std() * 2)
+    oversampling_size = 20  # int(group_sizes.mean() + group_sizes.std() * 2)
     #print(f"oversampling_size: {oversampling_size}")
     
     for _, group in tqdm(groups):
