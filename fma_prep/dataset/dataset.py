@@ -76,7 +76,7 @@ def __split_data__(group, percentage=0.1):
     return first, second
 
 
-def select_dataset(df, args):
+def select_dataset(df):
     tests = []
     trains = []
     validations = []
