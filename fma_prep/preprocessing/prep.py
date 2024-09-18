@@ -147,7 +147,7 @@ def prepare_labels(tracks_df, args):
     with open(args.mlb_path, 'wb') as file:
         pickle.dump(mlbs, file)
 
-    tracks_df['all_binarized'] = tracks_df.apply(lambda row: [sublist for sublist in row[labels_name]], axis=1)
+    tracks_df['all_binarized'] = tracks_df.apply(lambda row: [sublist.tolist() for sublist in row[labels_name]], axis=1)
 
     tracks_df = tracks_df[['track_id', 'y_true', 'all_binarized']]
 
