@@ -136,10 +136,10 @@ def prepare_labels(tracks_df, args):
         
         # Cria e aplica o MultiLabelBinarizer
         mlb = MultiLabelBinarizer()
-        binary_labels = mlb.fit_transform(level_labels)
+        binary_labels = mlb.fit_transform(level_labels).tolist()
         mlbs.append(mlb)
 
-        binary_labels = [binary_labels[i].tolist() if i < len(binary_labels) else [0] * len(mlb.classes_) for i in range(len(tracks_df))]
+        binary_labels = [binary_labels[i] if i < len(binary_labels) else [0] * len(mlb.classes_) for i in range(len(tracks_df))]
 
         tracks_df.loc[:, labels_name[idx]] = binary_labels
 
