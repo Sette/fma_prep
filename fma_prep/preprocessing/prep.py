@@ -139,7 +139,7 @@ def prepare_labels(tracks_df, args):
         binary_labels = mlb.fit_transform(level_labels)
         mlbs.append(mlb)
 
-        binary_labels = [binary_labels[i] if i < len(binary_labels) else [0] * len(mlb.classes_) for i in range(len(tracks_df))]
+        binary_labels = [binary_labels[i].tolist() if i < len(binary_labels) else [0] * len(mlb.classes_) for i in range(len(tracks_df))]
 
         tracks_df.loc[:, labels_name[idx]] = binary_labels
 
@@ -147,7 +147,7 @@ def prepare_labels(tracks_df, args):
     with open(args.mlb_path, 'wb') as file:
         pickle.dump(mlbs, file)
 
-    tracks_df['all_binarized'] = tracks_df.apply(lambda row: [sublist for sublist in row[labels_name].tolist()], axis=1)
+    tracks_df['all_binarized'] = tracks_df.apply(lambda row: [sublist for sublist in row[labels_name]], axis=1)
 
     tracks_df = tracks_df[['track_id', 'y_true', 'all_binarized']]
 
