@@ -10,12 +10,12 @@ python = ">=3.10,<=3.11.9"
 pandas = "2.2.2"
 tqdm = "^4.66.2"
 tensorflow = ">=2.12.1,<=2.17.1"
-scikit-learn = ">=1.0.1,<=1.5.1"
+scikit-learn = ">=1.2.2"
 scikit-multilearn = "^0.2.0"
-torch = { version = "^2.0.0", source = "pytorch" }
-torchvision = { version = "^0.15.0", source = "pytorch" }
-torchaudio = { version = "^2.0.0", source = "pytorch" }
-essentia = "2.1b6.dev1110"
+torch = { version = ">=2.0.0", source = "pytorch" }
+torchvision = { version = ">=0.16.0", source = "pytorch" }
+torchaudio = { version = ">=2.0.0", source = "pytorch" }
+essentia-tensorflow = "2.1b6.dev1110"
 
 
 [tool.poetry.group.dev.dependencies]
