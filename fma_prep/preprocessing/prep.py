@@ -26,15 +26,6 @@ logging.basicConfig(level=logging.INFO)
 
 tqdm.pandas()
 
-def remover_sublistas_redundantes(lista_de_listas):
-    max_depth = max([len(value) for value in lista_de_listas])
-    new_sublist = []
-    for sublista in lista_de_listas:
-        if len(sublista) == max_depth:
-            new_sublist.append(sublista)
-
-    return new_sublist
-
 def prepare_paths(args):
     ## Define job paths
     input_path = args.input_path
@@ -70,12 +61,32 @@ def prepare_paths(args):
     return tracks_df, args
 
 
+
+def group_labels_by_level(df, max_depth):
+    # Initialize empty lists for each level based on max_depth
+    levels = [[] for _ in range(max_depth)]
+    
+    # Iterate over each row in the DataFrame
+    for index, row in df.iterrows():
+        # Iterate over each level and append the labels to the corresponding list
+        for level in range(max_depth):
+            level_labels = []
+            for label in row['y_true']:
+                if level < len(label):
+                    level_labels.append(label[level])
+            levels[level].append(list(set(level_labels)))
+    
+    # Return the grouped labels by level
+    return levels
+
+
+
 # Função para dividir os rótulos em níveis
 def split_labels(all_labels, level):
-    return [label[level] if len(label) > level else None for labels in all_labels for label in labels]
+    return [label[level] for labels in all_labels for label in labels]
 
 
-def prepare_labels(tracks_df, args):
+def create_labels(tracks_df, args):
     ##### Labels
      # Loand genres df
     genres_df = pd.read_csv(os.path.join(args.metadata_path, 'genres.csv'))
@@ -108,8 +119,8 @@ def prepare_labels(tracks_df, args):
             all_labels.append(converted_labels)
 
     labels_name = []
-    for level in range(1, max_depth+1):
-        labels_name.append(f'level{level}')
+    for level in range(max_depth):
+        labels_name.append(f'level{level+1}')
 
     categories_df = pd.DataFrame(all_labels, columns=labels_name).drop_duplicates()
 
@@ -122,35 +133,7 @@ def prepare_labels(tracks_df, args):
     max_depth = len(valid_labels_name)
     args['max_depth'] = max_depth
     categories_df = categories_df[valid_labels_name]
-
-    mlbs = []
     
-    labels_name = []
-    for level in range(1, max_depth+1):
-        labels_name.append(f'level{level}')
-        idx = level-1
-         # Extrai os rótulos do nível atual
-        level_labels = split_labels(tracks_df['y_true'], idx)
-         # Remove valores None
-        level_labels = [[label] for label in level_labels if label is not None]
-        
-        # Cria e aplica o MultiLabelBinarizer
-        mlb = MultiLabelBinarizer()
-        binary_labels = mlb.fit_transform(level_labels).tolist()
-        mlbs.append(mlb)
-
-        binary_labels = [binary_labels[i] if i < len(binary_labels) else [0] * len(mlb.classes_) for i in range(len(tracks_df))]
-
-        tracks_df.loc[:, labels_name[idx]] = binary_labels
-
-    # Serializar a lista de mlb
-    with open(args.mlb_path, 'wb') as file:
-        pickle.dump(mlbs, file)
-
-    tracks_df['all_binarized'] = tracks_df.apply(lambda row: [sublist for sublist in row[labels_name]], axis=1)
-
-    tracks_df = tracks_df[['track_id', 'y_true', 'all_binarized']]
-
     categories_df[f'level{max_depth}_name'] = [get_labels_name(categorie, genres_df) for categorie in categories_df.values]
 
 
@@ -159,8 +142,39 @@ def prepare_labels(tracks_df, args):
         labels = __create_labels__(categories_df, max_depth)
         args['levels_size'] = labels['levels_size']
         f.write(json.dumps(labels))
+    
 
-    return tracks_df, args
+def binarize_labels(tracks_df, args):
+    ##### Labels
+    mlbs = []
+    
+    grouped_labels = group_labels_by_level(tracks_df, args.max_depth)
+    
+    labels_name = []
+    for level, level_labels in enumerate(grouped_labels):
+        labels_name.append(f'level{level+1}')
+        
+        # Remove valores None
+        #level_labels = [label if type(label) == list else [label] for label in level_labels if label is not None]
+        
+        # Cria e aplica o MultiLabelBinarizer
+        mlb = MultiLabelBinarizer()
+        binary_labels = mlb.fit_transform(level_labels).tolist()
+       
+        mlbs.append(mlb)
+        
+        binary_labels = [binary_labels[i] if i < len(binary_labels) else [0] * len(mlb.classes_) for i in range(len(tracks_df))]
+
+        tracks_df.loc[:, labels_name[level]] = binary_labels
+
+    # Serializar a lista de mlb
+    with open(args.mlb_path, 'wb') as file:
+        pickle.dump(mlbs, file)
+
+    tracks_df['all_binarized'] = tracks_df.apply(lambda row: [sublist for sublist in row[labels_name]], axis=1)
+    tracks_df = tracks_df[['track_id', 'y_true', 'all_binarized']]
+
+
 
 
 
@@ -213,6 +227,8 @@ def split_dataset(tracks_df,args):
     create_metadata(args)
 
 
+
+
 def run():
     # ArgumentParser configuration
     parser = argparse.ArgumentParser(description="Music data processing.")
@@ -228,7 +244,6 @@ def run():
     args = parser.parse_args()
     # Log an info message
 
-
     # Convert arguments to a pandas Series
     args = pd.Series(vars(args))
     print("Prepraring paths.")
@@ -238,6 +253,11 @@ def run():
         print(f"Using top genres list. {args['top_genres']}")
         tracks_df = tracks_df[tracks_df['track_genre_top'].isin(args['top_genres'])]
     print("Crerating labels structures.")
-    tracks_df, args = prepare_labels(tracks_df, args)
+    #return tracks_df, args
+    create_labels(tracks_df, args)
+    print("Binarizing labels structures.")
+    binarize_labels(tracks_df, args)
     print("Spliting dataset in train/test/val.")
     split_dataset(tracks_df, args)
+    
+    
