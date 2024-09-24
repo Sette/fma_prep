@@ -26,6 +26,17 @@ logging.basicConfig(level=logging.INFO)
 
 tqdm.pandas()
 
+
+def remover_sublistas_redundantes(lista_de_listas):
+    max_depth = max([len(value) for value in lista_de_listas])
+    new_sublist = []
+    for sublista in lista_de_listas:
+        if len(sublista) == max_depth:
+            new_sublist.append(sublista)
+
+    return new_sublist
+
+
 def prepare_paths(args):
     ## Define job paths
     input_path = args.input_path
@@ -252,12 +263,10 @@ def run():
     if args.top_genres:
         print(f"Using top genres list. {args['top_genres']}")
         tracks_df = tracks_df[tracks_df['track_genre_top'].isin(args['top_genres'])]
-    print("Crerating labels structures.")
+    print("Creating labels structures.")
     #return tracks_df, args
     create_labels(tracks_df, args)
     print("Binarizing labels structures.")
     binarize_labels(tracks_df, args)
     print("Spliting dataset in train/test/val.")
     split_dataset(tracks_df, args)
-    
-    
