@@ -185,9 +185,6 @@ def binarize_labels(tracks_df, args):
     tracks_df = tracks_df[['track_id', 'y_true', 'all_binarized']]
 
 
-
-
-
 def split_dataset(tracks_df,args):
     #### Split dataset
 
@@ -204,8 +201,10 @@ def split_dataset(tracks_df,args):
     args['train_csv'] = os.path.join(args.job_path, "train.csv")
     args['test_csv'] = os.path.join(args.job_path, "test.csv")
     args['val_csv'] = os.path.join(args.job_path, "val.csv")
+    
+    feature_path = os.path.join(args.input_path, 'fma_large')
 
-    df_features = load_features(args.input_path)
+    df_features = load_features(feature_path)
 
     df_features.dropna(inplace=True)
 
@@ -243,8 +242,8 @@ def run():
     # ArgumentParser configuration
     parser = argparse.ArgumentParser(description="Music data processing.")
 
-    parser.add_argument('--input_path', type=str, default="/mnt/disks/data/", help="Root directory of the data.")
-    parser.add_argument('--output_path', type=str, default="/mnt/disks/data/", help="Path to the dataset.")
+    parser.add_argument('--input_path', type=str, default="/home/bruno/storage/data/fma", help="Root directory of the data.")
+    parser.add_argument('--output_path', type=str, default="/home/bruno/storage/data/fma/trains", help="Path to the dataset.")
     parser.add_argument('--top_genres', type=str, nargs='+', default=[], help="List of top genres.")
     parser.add_argument('--sequence_size', type=int, default=1280, help="Size of the sequence.")
     parser.add_argument('--train_id', type=str, default="hierarchical_tworoots_dev", help="Training ID.")
