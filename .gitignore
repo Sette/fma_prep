@@ -1,5 +1,6 @@
 .ipynb_checkpoints
 .idea
+.venv
 .pyc
 fma_prep/preprocessing/__pycache__
 fma_prep/dataset/__pycache__
