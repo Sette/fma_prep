@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "fma-prep"
-version = "0.1.0"
+version = "0.1.5"
 description = ""
 authors = ["sette <bruno.sette@ufscar.br>"]
 readme = "README.md"
