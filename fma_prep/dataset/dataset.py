@@ -42,11 +42,9 @@ def get_dataset(filename):
     return dataset
 
 
-def load_features(path, dataset='music_style'):
-    tfrecords_path = os.path.join(path, 'tfrecords', dataset)
-
-    tfrecords_path = [os.path.join(tfrecords_path, path) for path in os.listdir(tfrecords_path)]
-    dataset = get_dataset(tfrecords_path)
+def load_features(dataset_path):
+    dataset_path = [os.path.join(dataset_path, path) for path in os.listdir(dataset_path) if path.endswith('.tfrecord')]
+    dataset = get_dataset(dataset_path)
 
     df = pd.DataFrame(
         dataset.as_numpy_iterator(),
@@ -78,7 +76,7 @@ def __split_data__(group, percentage=0.1):
     return first, second
 
 
-def select_dataset(df, args):
+def select_dataset(df):
     tests = []
     trains = []
     validations = []
@@ -89,8 +87,8 @@ def select_dataset(df, args):
     
     count = 0
     items_count = 0
-    oversampling_size = 5  # int(group_sizes.mean() + group_sizes.std() * 2)
-    print(f"oversampling_size: {oversampling_size}")
+    oversampling_size = 20  # int(group_sizes.mean() + group_sizes.std() * 2)
+    #print(f"oversampling_size: {oversampling_size}")
     
     for _, group in tqdm(groups):
         test, train_to_split = __split_data__(group, 0.2)  # 20%
@@ -103,7 +101,7 @@ def select_dataset(df, args):
         ## this increase the numner of samples when classes has low quantity
         count_train = len(train)
         if count_train < oversampling_size:
-            print(f'Oversampling: {train.y_true.iloc[0]}')
+            #print(f'Oversampling: {train.y_true.iloc[0]}')
             train = train.sample(oversampling_size, replace=True)
     
         trains.append(train)

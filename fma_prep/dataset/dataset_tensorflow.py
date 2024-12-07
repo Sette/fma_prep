@@ -49,7 +49,6 @@ def create_example(data):
 
     for idx, level in enumerate(labels, start=1):
         label_key = f'level{idx}'
-        print(label_key)
         data[label_key] =  _int64List_feature(level)
 
     out = tf.train.Example(features=tf.train.Features(feature=data))
@@ -57,9 +56,8 @@ def create_example(data):
     return out
 
 
-def generate_tf_record(df, args, tf_path='val'):
+def generate_tf_record(df, tf_path='val'):
     create_dir(tf_path)
-
     batch_size = 1024 * 50  # 50k records from each file batch
     count = 0
     total = math.ceil(len(df) / batch_size)

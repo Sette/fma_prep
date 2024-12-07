@@ -50,7 +50,6 @@ def get_labels_name(x, genres_df):
     full_name = '>'.join(full_name)
 
     return full_name
-    # return genres_df[genres_df['genre_id'] == int(x)].title.values.tolist()[0]
 
 def __create_labels__(categories_df, max_depth):
     data = {}
@@ -80,8 +79,6 @@ def __create_labels__(categories_df, max_depth):
             
     return data
         
-
-
 
 def get_all_structure(estrutura, df_genres):
     # Inicializar uma lista para armazenar a estrutura completa

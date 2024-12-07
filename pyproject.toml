@@ -6,20 +6,38 @@ authors = ["sette <bruno.sette@ufscar.br>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.10"
-pandas = "^2.2.1"
+python = ">=3.10,<=3.11.9"
+pandas = "2.2.2"
 tqdm = "^4.66.2"
-tensorflow = "^2.16.1"
-scikit-learn = "^1.4.1.post1"
+tensorflow = ">=2.12.1,<=2.17.1"
+scikit-learn = ">=1.2.2"
 scikit-multilearn = "^0.2.0"
-torch = "^2.3.0"
-essentia = "2.1b6.dev1110"
+torch = { version = ">=2.0.0", source = "pytorch" }
+torchvision = { version = ">=0.16.0", source = "pytorch" }
+torchaudio = { version = ">=2.0.0", source = "pytorch" }
+essentia-tensorflow = "2.1b6.dev1110"
 
 
 [tool.poetry.group.dev.dependencies]
 jupyterlab = "^4.1.5"
 ipywidgets = "^8.1.2"
 jupyterlab-git = "^0.50.0"
+black = "^24.8.0"
+flake8-black = "^0.3.6"
+flake8-bandit = "^4.1.1"
+flake8-bugbear = "^24.4.26"
+safety = "^3.2.5"
+pre-commit = "^3.8.0"
+python-semantic-release = "^9.8.6"
+pytest = "^8.3.2"
+pytest-mock = "^3.14.0"
+pytest-cov = "^5.0.0"
+isort = "^5.13.2"
+pylama = "^8.4.1"
+
+[[tool.poetry.source]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu121"
 
 [build-system]
 requires = ["poetry-core"]
