@@ -26,12 +26,79 @@ logging.basicConfig(level=logging.INFO)
 
 tqdm.pandas()
 
+def transform_labels(label_lists):
+    """
+    Transforms a list of lists into a single string with the format `X.Y.Z@A.B.C`.
+
+    Args:
+        label_lists (list of lists): A list of lists of labels.
+
+    Returns:
+        str: A string representation in the format `X.Y.Z@A.B.C`.
+    """
+    # Join each sublist with "." and then join the resulting strings with "@"
+    return "@".join(".".join(map(str, sublist)) for sublist in label_lists)
+
+
+
+def max_hierarchy_depth_from_lists(label_lists):
+    """
+    Calculates the maximum hierarchy depth from a list of lists.
+
+    Args:
+        label_lists (list of lists): A list containing hierarchical labels.
+
+    Returns:
+        int: The maximum depth of the hierarchy.
+    """
+    return max(len(sublist) for sublist in label_lists)
+
+def group_and_remove_redundant(structures):
+    """
+    Group sublists by their size and remove redundant sublists.
+    
+    Args:
+        structures (list of lists): A list of lists to process.
+    
+    Returns:
+        list of lists: Processed list with no redundant sublists.
+    """
+    # Step 1: Group lists by their size
+    grouped = {}
+    for sublist in structures:
+        size = len(sublist)
+        if size not in grouped:
+            grouped[size] = []
+        grouped[size].append(sublist)
+    
+    # Step 2: Sort keys in descending order (largest lists first)
+    sorted_sizes = sorted(grouped.keys(), reverse=True)
+    
+    # Step 3: Remove redundant sublists
+    unique_structures = []
+    seen = set()
+    
+    for size in sorted_sizes:
+        for sublist in grouped[size]:
+            # Check if the sublist is already a subset of another added list
+            sublist_set = set(sublist)
+            if not any(sublist_set.issubset(set(added)) for added in unique_structures):
+                unique_structures.append(sublist)
+    
+    return unique_structures
+    
 
 def remover_sublistas_redundantes(lista_de_listas):
     max_depth = max([len(value) for value in lista_de_listas])
     new_sublist = []
     for sublista in lista_de_listas:
-        if len(sublista) == max_depth:
+        get = True
+        if len(sublista) != max_depth:
+            for s_list in new_sublist:
+                if any(sub in s_list for sub in sublista):
+                    get = False
+
+        if get:
             new_sublist.append(sublista)
 
     return new_sublist
@@ -103,55 +170,32 @@ def create_labels(tracks_df, args):
     # Mapear os identificadores numéricos de gêneros para os nomes dos gêneros
     
     # Inicialize uma lista para armazenar todos os caminhos de gêneros para cada exemplo
-    estruturas = []
+    all_labels = []
+    all_structures = []
+    depths = []
     # Iterar sobre as faixas e seus gêneros associados
     for track_genres in tracks_df['track_genres_all']:
-        caminho_id = [get_all_structure(genre_id, genres_df) for genre_id in track_genres]
-        estruturas.append(caminho_id)
+        structures = [get_all_structure(genre_id, genres_df) for genre_id in track_genres]
+        structures.sort(key=len, reverse=True)
+        depths.append(max_hierarchy_depth_from_lists(structures))
+        structures = group_and_remove_redundant(structures)
+        labels = transform_labels(structures)
+        categories = labels.split('@')
+        all_structures.extend(categories)
+        all_labels.append(labels)
 
-    max_depth = 0
-    for idx, caminho in enumerate(estruturas):
-        caminho.sort(key=len, reverse=True)
-        caminho = remover_sublistas_redundantes(caminho)
-        estruturas[idx] = caminho
-        if len(caminho) > max_depth:
-            max_depth = len(caminho)
+    all_categories = {"labels": list(set(all_structures))}
+    # Write labels file
+
+    with open(args.categories_labels_path, 'w+') as f:
+        f.write(json.dumps(all_categories))
 
     ## Get structure form hierarchical classification
-    tracks_df.loc[:, 'y_true'] = estruturas
-    all_labels = []
-    lens = []
-    for idx, row in enumerate(tracks_df.y_true):
-        for labels in row:
-            lens.append(len(labels))
-            converted_labels = labels.copy()
-            converted_labels.extend([0] * (max_depth - len(labels)))
-            all_labels.append(converted_labels)
+    tracks_df.loc[:, 'y_true'] = all_labels
+    args['max_depth'] = max(depths)
 
-    labels_name = []
-    for level in range(max_depth):
-        labels_name.append(f'level{level+1}')
+    return tracks_df
 
-    categories_df = pd.DataFrame(all_labels, columns=labels_name).drop_duplicates()
-
-    valid_labels_name = []
-    for label_name in labels_name:
-        unique_labels = [x for x in categories_df[label_name].unique() if x != 0]
-        if len(unique_labels) > 1:
-            valid_labels_name.append(label_name)
-
-    max_depth = len(valid_labels_name)
-    args['max_depth'] = max_depth
-    categories_df = categories_df[valid_labels_name]
-    
-    categories_df[f'level{max_depth}_name'] = [get_labels_name(categorie, genres_df) for categorie in categories_df.values]
-
-
-    # Write labels file
-    with open(args.categories_labels_path, 'w+') as f:
-        labels = __create_labels__(categories_df, max_depth)
-        args['levels_size'] = labels['levels_size']
-        f.write(json.dumps(labels))
     
 
 def binarize_labels(tracks_df, args):
