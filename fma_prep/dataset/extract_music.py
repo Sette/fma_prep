@@ -2,19 +2,13 @@
 # coding: utf-8
 
 import os
-import csv
-import json
 import pandas as pd
-import numpy as np
 import tensorflow as tf
-
-from math import ceil
 from joblib import Parallel, delayed
-
-import multiprocessing
+import numpy as np
 from tqdm import tqdm
-
-from essentia.standard import MonoLoader, TensorflowPredictEffnetDiscogs
+import torch
+from essentia.standard import MonoLoader, FrameGenerator, TensorflowPredictEffnetDiscogs, TensorflowInputMusiCNN
 
 
 tqdm.pandas()
@@ -22,15 +16,21 @@ tqdm.pandas()
 
 
 args = pd.Series({
-    "root_dir":"/mnt/disks/data/",
-    "dataset_path":"/mnt/disks/data/fma/fma_large",
-    "embeddings":"music_style"
+    "root_dir":"/home/bruno/storage/data",
+    "dataset_path":"/home/bruno/storage/data/fma/fma_large",
+    "embeddings":"music_style",
+    "top_genres": ["Rock", "Electronic"]
 })
+
 
 
 base_path = os.path.join(args.root_dir,"fma")
 
-models_path = os.path.join(args.root_dir,"models")
+
+# In[17]:
+
+
+models_path = os.path.join('/'.join(args.root_dir.split('/')[:-1]), "models")
 
 
 metadata_path_fma = os.path.join(base_path,"fma_metadata")
@@ -42,7 +42,18 @@ if args.embeddings == "music_style":
 
 df = pd.read_csv(os.path.join(metadata_path_fma,"tracks_valid.csv"))
 
-model = TensorflowPredictEffnetDiscogs(graphFilename=model_path, output="PartitionedCall:1")
+if args.top_genres:
+    print(f"Using top genres list. {args['top_genres']}")
+    df = df[df['track_genre_top'].isin(args['top_genres'])]
+
+
+df = df[['track_id','file_path']]
+
+
+
+#model = TensorflowPredictEffnetDiscogs(graphFilename=model_path, output="PartitionedCall")
+
+model = TensorflowInputMusiCNN()
 
 def create_dir(path):
     # checking if the directory demo_folder2 
@@ -59,8 +70,17 @@ def extract_feature(file_path,model):
     ### Configuração do model para extrair a representação do aúdio
     # model = TensorflowPredictEffnetDiscogs(graphFilename=model_path)
     audio = MonoLoader(filename=file_path, sampleRate=16000)()
-    activations = model(audio)
-    return activations
+
+    # Criar frames de 512 samples
+    frames = list(FrameGenerator(audio, frameSize=512, hopSize=256))
+
+    # Aplicar MusiCNN em cada frame e armazenar as ativações
+    activations = np.array([model(frame) for frame in frames])
+
+    # Concatenar todas as ativações em um único vetor
+    final_feature_vector = np.concatenate(activations, axis=0).tolist()
+    
+    return final_feature_vector
 
 
 def find_path(track_id,dataset_path):
@@ -113,7 +133,6 @@ def process_df(df,i,count,batch_size,tfrecords_path):
 
     print("Extraiu as features")
 
-
     tfrecords = [parse_single_music(data, x) for data, x in zip(batch_df.values, X)]
 
     path = os.path.join(tfrecords_path,f"{str(count).zfill(10)}.tfrecord")
@@ -126,23 +145,123 @@ def process_df(df,i,count,batch_size,tfrecords_path):
     print(f"{count} {len(tfrecords)} {path}")
 
 
+
+
 def generate_tf_records(df,filename="train"):
     
     tfrecords_path = os.path.join(args.dataset_path,"tfrecords",filename)
     
     create_dir(tfrecords_path)
     
-    
     batch_size = 1024 * 10  # 10k records from each file batch
     
     with Parallel(n_jobs=10, require='sharedmem') as para:
         print("Estamos usando paralelismo!!!")
         para(delayed(process_df)(df,i,count,batch_size,tfrecords_path) for count,i in enumerate(range(0, len(df), batch_size)))
+
+##### 
+## Pt files
+#####
+
+def create_example(data):
+    track_id, _, music = data
+
+    example = {
+        'features': music,
+        'track_id': track_id
+    }
+    
+    return example
+
+def process_df_topt(df,i,count,batch_size,pt_path,model):
+    tqdm.pandas()
+    batch_df = df[i:i+batch_size]
+    batch_df["features"] = batch_df.file_path.progress_apply(lambda x: extract_feature(x,model))   
+    
+    print("Extraiu as features")
+
+    path = os.path.join(pt_path, f"{str(count).zfill(10)}.pt")
+
+    create_dir(pt_path)
+
+    pt_records = [create_example(data) for data in batch_df.values]
+    torch.save(pt_records, path)
+
+    print(f"{count} {len(pt_records)} {path}")
+    count += 1
+
     
 
+    print(f"{count} {len(batch_df)} {path}")
+
+def generate_pt_files(df, model, filename="train"):
+    
+    csv_path = os.path.join(args.dataset_path, "csv_rock_electronic", filename)
+    
+    batch_size = 1024 * 1  # 1k records from each file batch
+    
+    with Parallel(n_jobs=4, require='sharedmem') as para:
+        print("Estamos usando paralelismo!!!")
+        para(delayed(process_df_topt)(df,i,count,batch_size,csv_path, model) for count,i in enumerate(range(0, len(df), batch_size)))
+
+### CSV files
+
+def process_df_tocsv(df,i,count,batch_size,csv_path,model):
+    tqdm.pandas()
+    batch_df = df[i:i+batch_size]
+    X = batch_df.file_path.progress_apply(lambda x: extract_feature(x,model))   
+    batch_df.loc[:,"features"] = X
+    
+    print("Extraiu as features")
+
+    path = os.path.join(csv_path,f"{str(count).zfill(10)}.csv")
+
+    batch_df.to_csv(path, index=False)
+
+    print(f"{count} {len(batch_df)} {path}")
+
+def process_simple_df(df, csv_path, model):
+    tqdm.pandas()
+    X = df.file_path.progress_apply(lambda x: extract_feature(x, model))
+    df["features"] = X
+    
+    print("Extraiu as features")
+
+    path = os.path.join(csv_path, f"output.csv")
+
+    # with tf.python_io.TFRecordWriter(path) as writer:
+
+    df.to_csv(path, index=False)
+
+    print(f"{len(df)} {path}")
+
+def generate_csv_files(df, model, filename="train"):
+    
+    csv_path = os.path.join(args.dataset_path, "pt_rock_electronic", filename)
+    
+    batch_size = 1024 * 1  # 1k records from each file batch
+    
+    with Parallel(n_jobs=4, require='sharedmem') as para:
+        print("Estamos usando paralelismo!!!")
+        para(delayed(process_df_tocsv)(df,i,count,batch_size,csv_path, model) for count,i in enumerate(range(0, len(df), batch_size)))
 
 
-generate_tf_records(df,model,filename=args.embeddings)
+def simple_generate_csv_files(df, model, filename="train"):
+    csv_path = os.path.join(args.dataset_path, "csv_rock_electronic", filename)
+
+    process_simple_df(df, csv_path, model)
+
+
+
+
+
+#df = df.sample(10)
+
+#generate_csv_files(df,model,filename=args.embeddings)
+
+generate_pt_files(df,model,filename=args.embeddings)
+
+#simple_generate_csv_files(df,model,filename=args.embeddings)
 
 
 

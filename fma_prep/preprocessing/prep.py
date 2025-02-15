@@ -9,13 +9,15 @@ import argparse
 import json
 import ast
 import os
+import sys
+import types
 from tqdm.notebook import tqdm
 
 from fma_prep.utils.dir import create_dir
-from fma_prep.dataset.labels import __create_labels__, get_all_structure, get_labels_name
+from fma_prep.dataset.labels import get_all_structure
 from fma_prep.dataset.dataset_tensorflow import generate_tf_record
 from fma_prep.dataset.dataset_torch import generate_pt_record
-from fma_prep.dataset.dataset import select_dataset, create_metadata, load_features
+from fma_prep.dataset.dataset import select_dataset, create_metadata, HMCDatasetFeatures
 from sklearn.preprocessing import MultiLabelBinarizer
 # In[2]:
 
@@ -122,13 +124,11 @@ def prepare_paths(args):
     # Load tracks_df
     tracks_df = pd.read_csv(os.path.join(args.metadata_path, 'tracks_valid.csv'))
 
+
+
     # Loand genres df
     #genres_df = pd.read_csv(os.path.join(args.metadata_path, 'genres.csv'))
     # In[13]:
-
-    ## Get sample size from args parameter
-    tracks_df = tracks_df.sample(frac=args.sample_size)
-
     tracks_df["track_genres_all"] = tracks_df.track_genres_all.apply(lambda x: ast.literal_eval(x))
     tracks_df.drop(columns=['track_genres'], inplace=True)
     tracks_df.dropna(inplace=True)
@@ -192,11 +192,13 @@ def create_labels(tracks_df, args):
 
     ## Get structure form hierarchical classification
     tracks_df.loc[:, 'y_true'] = all_labels
+
+    tracks_df = tracks_df[['track_id', 'file_path', 'track_genre_top', 'y_true']]
     args['max_depth'] = max(depths)
 
     return tracks_df
 
-    
+
 
 def binarize_labels(tracks_df, args):
     ##### Labels
@@ -246,31 +248,49 @@ def split_dataset(tracks_df,args):
     args['test_csv'] = os.path.join(args.job_path, "test.csv")
     args['val_csv'] = os.path.join(args.job_path, "val.csv")
     
-    feature_path = os.path.join(args.input_path, 'fma_large')
+    feature_path = os.path.join(args.input_path, 'pt_rock_electronic/musicnn')
 
-    df_features = load_features(feature_path)
+    logging.info("Carregando as features")
+    
+    # Create a dummy dataset module with dataset_torch submodule
+    dataset = types.ModuleType('dataset')
+    dataset_torch = types.ModuleType('dataset_torch')
+    dataset.dataset_torch = dataset_torch
+    sys.modules['dataset'] = dataset
+    sys.modules['dataset.dataset_torch'] = dataset_torch
+
+
+    dataset_torch.MusicDataset = HMCDatasetFeatures
+    sys.modules['dataset_torch'] = dataset_torch
+
+
+    # Carregar o dataset salvo
+    loaded_dataset = HMCDatasetFeatures(feature_path)
+    
+    df_features = loaded_dataset.to_dataframe()
 
     df_features.dropna(inplace=True)
-
-    df_train.to_csv(args['train_csv'], index=False)
-    df_test.to_csv(args['test_csv'], index=False)
-    df_val.to_csv(args['val_csv'], index=False)
 
     df_val_features = df_val.merge(df_features, on='track_id')
     df_test_features = df_test.merge(df_features, on='track_id')
     df_train_features = df_train.merge(df_features, on='track_id')
 
-    df_train_features = df_train_features[['track_id', 'all_binarized', 'feature']]
-    df_test_features = df_test_features[['track_id', 'all_binarized', 'feature']]
-    df_val_features = df_val_features[['track_id', 'all_binarized', 'feature']]
+    df_train_features.to_csv(args['train_csv'], index=False)
+    df_test_features.to_csv(args['test_csv'], index=False)
+    df_val_features.to_csv(args['val_csv'], index=False)
 
-    generate_tf_record(df_val_features, tf_path=args['val_path'])
-    generate_tf_record(df_test_features, tf_path=args['test_path'])
-    generate_tf_record(df_train_features, tf_path=args['train_path'])
 
-    generate_pt_record(df_val_features, pt_path=args['val_torch_path'])
-    generate_pt_record(df_test_features, pt_path=args['test_torch_path'])
-    generate_pt_record(df_train_features, pt_path=args['train_torch_path'])
+    # df_train_features = df_train_features[['track_id', 'feature']]
+    # df_test_features = df_test_features[['track_id', 'feature']]
+    # df_val_features = df_val_features[['track_id', 'feature']]
+
+    # generate_tf_record(df_val_features, tf_path=args['val_path'])
+    # generate_tf_record(df_test_features, tf_path=args['test_path'])
+    # generate_tf_record(df_train_features, tf_path=args['train_path'])
+
+    # generate_pt_record(df_val_features, pt_path=args['val_torch_path'])
+    # generate_pt_record(df_test_features, pt_path=args['test_torch_path'])
+    # generate_pt_record(df_train_features, pt_path=args['train_torch_path'])
 
     args['val_len'] = df_val.shape[0]
     args['test_len'] = df_test.shape[0]
@@ -279,14 +299,11 @@ def split_dataset(tracks_df,args):
     # ## Create metadata file
     create_metadata(args)
 
-
-
-
 def run():
     # ArgumentParser configuration
     parser = argparse.ArgumentParser(description="Music data processing.")
 
-    parser.add_argument('--input_path', type=str, default="/home/bruno/storage/data/fma", help="Root directory of the data.")
+    parser.add_argument('--input_path', type=str, default="/home/bruno/storage/data/fma/fma_large", help="Root directory of the data.")
     parser.add_argument('--output_path', type=str, default="/home/bruno/storage/data/fma/trains", help="Path to the dataset.")
     parser.add_argument('--top_genres', type=str, nargs='+', default=[], help="List of top genres.")
     parser.add_argument('--sequence_size', type=int, default=1280, help="Size of the sequence.")
@@ -299,16 +316,19 @@ def run():
 
     # Convert arguments to a pandas Series
     args = pd.Series(vars(args))
-    print("Prepraring paths.")
+    logging.info("Prepraring paths.")
     tracks_df, args = prepare_paths(args)
+    
+    ## Get sample size from args parameter
+    tracks_df = tracks_df.sample(frac=args.sample_size)
     # Converter a string de volta para uma lista
     if args.top_genres:
-        print(f"Using top genres list. {args['top_genres']}")
+        logging.info(f"Using top genres list. {args['top_genres']}")
         tracks_df = tracks_df[tracks_df['track_genre_top'].isin(args['top_genres'])]
-    print("Creating labels structures.")
+    logging.info("Creating labels structures.")
     #return tracks_df, args
     create_labels(tracks_df, args)
-    print("Binarizing labels structures.")
-    binarize_labels(tracks_df, args)
-    print("Spliting dataset in train/test/val.")
+    #logging.info("Binarizing labels structures.")
+    #binarize_labels(tracks_df, args)
+    logging.info("Spliting dataset in train/test/val.")
     split_dataset(tracks_df, args)
